@@ -64,12 +64,12 @@ async function postAsk(body, key, minerId) {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(50000),
+      signal: AbortSignal.timeout(25000),
     });
     status = r.status;
     const text = await r.text();
     try { json = JSON.parse(text); } catch { json = { error: text.slice(0, 300) }; }
-  } catch (e) { err = e.name === 'TimeoutError' ? 'no answer within 50 s' : 'could not reach Telegraph'; }
+  } catch (e) { err = e.name === 'TimeoutError' ? 'no answer within 25 s' : 'could not reach Telegraph'; }
   return { status, json, err };
 }
 function errText(status, json) {
@@ -94,8 +94,10 @@ async function telegraph(intent, params, query, key, minerId) {
   let ok = false;
   if (minerId) ok = await attempt(`miner ${minerId}`, { intent, params, query }, minerId)
     || await attempt(`miner ${minerId} (plain)`, { query }, minerId);
+  // A timeout means the provider is busy; asking again in another form only doubles the wait.
+  const timedOut = () => /no answer within/.test(String(err));
   if (!ok) ok = await attempt('router', { intent, params })
-    || await attempt('router (plain)', { query });
+    || (!timedOut() && await attempt('router (plain)', { query }));
   if (!ok) err = tried.join('; ');
   // Direct asks come back wrapped: { result: { miner_id, miner_name, result, cost_usd, signal_hash, ... } }.
   let body = json || {};
