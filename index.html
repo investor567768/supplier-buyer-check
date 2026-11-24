@@ -85,6 +85,8 @@ footer a{margin-right:16px}
         <div class="full"><label for="product">Product and specification</label><input id="product" placeholder="e.g. 7.5 kW 3-phase frequency inverter, 380 V"></div>
         <div><label for="quantity">Quantity</label><input id="quantity" inputmode="numeric" placeholder="10,000"></div>
         <div><label for="deadline_days">Needed within (days)</label><input id="deadline_days" inputmode="numeric" placeholder="60"></div>
+        <div><label for="unit_price">Unit price in US dollars</label><input id="unit_price" inputmode="decimal" placeholder="180"></div>
+        <div><label for="deposit_pct">Deposit asked upfront (%)</label><input id="deposit_pct" inputmode="numeric" placeholder="30"></div>
       </div>
       <div class="sub">From the listing</div>
       <div class="grid">
@@ -163,7 +165,7 @@ const LABEL = { ok: 'OK', stop: 'Stop', mismatch: 'Mismatch', check: 'Ask', not_
 function render(r) {
   const vClass = r.verdict.startsWith('STOP') ? 'STOP' : r.verdict.startsWith('VERIFY') ? 'VERIFY' : 'PROCEED';
   let h = `<h2>Result: ${esc(r.input.supplier)}</h2><div class="card">`;
-  h += `<div class="verdict v-${vClass}"><b>${esc(r.verdict)}</b>${esc(r.why)}</div>`;
+  h += `<div class="verdict v-${vClass}"><b>${esc(r.verdict)}</b>${esc(r.why)}${r.money ? `<div style="margin-top:10px;font-weight:600">${esc(r.money.summary)}</div>` : ''}</div>`;
   for (const f of r.findings) h += `<div class="f"><span class="pill s-${f.status}">${LABEL[f.status] || f.status}</span><div><b>${esc(f.area)}.</b> ${esc(f.text)}</div><div class="src">Source: ${esc(f.source)}</div></div>`;
   h += `</div><h2 style="margin-top:24px">Telegraph requests and receipts</h2><div class="card"><table><tr><th>Intent</th><th>Miner</th><th>Cost</th><th>Receipt / signal</th></tr>`;
   for (const c of r.telegraph_calls) {
@@ -175,14 +177,14 @@ function render(r) {
   $('addcmp').onclick = () => { if (!compared.some(c => c.checked_at === r.checked_at)) compared.push(r); drawCmp(); $('cmp').scrollIntoView({ behavior: 'smooth' }); };
 }
 
-const FIELDS = ['product', 'quantity', 'deadline_days', 'supplier', 'country', 'city', 'website', 'listing_url', 'claimed_registration', 'claimed_certifications', 'claimed_years', 'claimed_monthly_capacity', 'claimed_export_markets', 'invoice_beneficiary', 'invoice_bank_country'];
+const FIELDS = ['product', 'quantity', 'deadline_days', 'unit_price', 'deposit_pct', 'supplier', 'country', 'city', 'website', 'listing_url', 'claimed_registration', 'claimed_certifications', 'claimed_years', 'claimed_monthly_capacity', 'claimed_export_markets', 'invoice_beneficiary', 'invoice_bank_country'];
 const EXAMPLES = [
   { label: 'Siemens AG (Germany)', supplier: 'Siemens AG', country: 'Germany', city: 'Munich', website: 'www.siemens.com' },
   { label: 'Delta Electronics (Taiwan)', supplier: 'Delta Electronics, Inc.', country: 'Taiwan', city: 'Taipei', website: 'www.deltaww.com' },
   { label: 'Invoice pays someone else', supplier: 'Siemens AG', country: 'Germany', city: 'Munich', website: 'www.siemens.com', invoice_beneficiary: 'Hong Kong Bright Star Trading Limited', invoice_bank_country: 'Hong Kong' },
   { label: 'Sanctioned company', supplier: 'Rosoboronexport', country: 'Russia', city: 'Moscow' },
 ];
-const ORDER = ['product', 'quantity', 'deadline_days'];
+const ORDER = ['product', 'quantity', 'deadline_days', 'unit_price', 'deposit_pct'];
 function fill(x, keepOrder) { for (const k of FIELDS) { if (keepOrder && ORDER.includes(k) && !(k in x)) continue; $(k).value = x[k] || ''; } save(); }
 function save() { try { const v = {}; for (const k of FIELDS) v[k] = $(k).value; localStorage.setItem('sbc-last', JSON.stringify(v)); if ($('passcode').value) localStorage.setItem('sbc-pass', $('passcode').value); } catch {} }
 $('examples').innerHTML = EXAMPLES.map((x, i) => `<button type="button" class="chip" data-i="${i}">${esc(x.label)}</button>`).join('');
@@ -255,6 +257,7 @@ function drawCmp() {
     if (!compared.some(r => r.findings.some(f => f.area === a))) continue;
     h += `<tr><td>${esc(a)}</td>` + compared.map(r => { const f = r.findings.find(x => x.area === a); return f ? `<td><span class="pill s-${f.status}">${LABEL[f.status] || f.status}</span><div class="hint">${esc(f.text)}</div></td>` : '<td class="hint">-</td>'; }).join('') + '</tr>';
   }
+  if (compared.some(r => r.money)) h += '<tr><td><b>Deposit at risk</b></td>' + compared.map(r => `<td>${r.money ? '$' + Math.round(r.money.deposit_at_risk).toLocaleString('en-US') + `<div class="hint">of $${Math.round(r.money.order_value).toLocaleString('en-US')}</div>` : '-'}</td>`).join('') + '</tr>';
   h += '<tr><td>Paid</td>' + compared.map(r => `<td>$${r.total_cost_usd}</td>`).join('') + '</tr>';
   $('cmpt').innerHTML = h; $('cmp').hidden = false;
 }

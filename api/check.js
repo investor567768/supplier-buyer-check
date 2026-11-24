@@ -172,6 +172,8 @@ async function investigate(input, key) {
     product: String(input.product || '').trim(),
     quantity: num(input.quantity),
     deadline_days: num(input.deadline_days),
+    unit_price: num(input.unit_price),
+    deposit_pct: num(input.deposit_pct) || 30,
     // What the listing claims
     claimed_certifications: list(input.claimed_certifications),
     claimed_years: num(input.claimed_years),
@@ -336,10 +338,23 @@ async function investigate(input, key) {
 
   const calls = [idc, reg, sanc, web, ws, news].filter(Boolean);
   const total = calls.reduce((t, c) => t + (c.cost_usd || 0), 0);
+  // Money at risk
+  const usd = n => '$' + Math.round(n).toLocaleString('en-US');
+  let money = null;
+  if (s.quantity && s.unit_price) {
+    const value = s.quantity * s.unit_price, deposit = value * Math.min(s.deposit_pct, 100) / 100;
+    const blocking = findings.filter(f => f.status === 'stop' || f.status === 'mismatch').map(f => f.area);
+    money = { order_value: value, deposit_pct: s.deposit_pct, deposit_at_risk: deposit,
+      summary: verdict === 'STOP'
+        ? `Order value ${usd(value)}. Paying now would put the ${s.deposit_pct}% deposit, ${usd(deposit)}, at risk, and the full ${usd(value)} if paid in full. This check stops that payment because of: ${blocking.join(', ')}.`
+        : verdict.startsWith('VERIFY')
+          ? `Order value ${usd(value)}. Hold the ${s.deposit_pct}% deposit (${usd(deposit)}) until the open points are answered${blocking.length ? `: ${blocking.join(', ')}` : ''}.`
+          : `Order value ${usd(value)}, ${s.deposit_pct}% deposit ${usd(deposit)}. No blocking problem found; standard payment protection still applies.` };
+  }
   const W = { ok: 3, check: -1, not_found: -2, unverified: -3, mismatch: -8, stop: -100 };
   const score = findings.reduce((t, f) => t + (W[f.status] ?? 0), 0);
   return {
-    input: s, verdict, why, findings, score,
+    input: s, verdict, why, findings, score, money,
     telegraph_calls: calls,
     free_sources: [{ source: 'GLEIF', url: lei.url, records: lei.records.length, attempts: lei.log, error: lei.error || null }],
     total_cost_usd: Math.round(total * 10000) / 10000,

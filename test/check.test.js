@@ -237,3 +237,12 @@ test('wrong company from the registry is not used for years; generic-word news i
   assert.match(f('Registered identity').text, /different company/);
   assert.equal(f('Disputes and adverse news').status, 'ok');
 });
+
+test('money at risk: STOP shows the deposit the check protects', async () => {
+  mock({ registry: { legal_name: base.supplier, active: true }, sanctions: { matched: false }, url: { verdict: 'clean' } });
+  const r = await investigate({ ...base, quantity: '10000', unit_price: '180', invoice_beneficiary: 'Hong Kong Bright Star Trading Limited' }, 'k');
+  assert.equal(r.verdict, 'STOP');
+  assert.equal(r.money.order_value, 1800000);
+  assert.equal(r.money.deposit_at_risk, 540000);
+  assert.match(r.money.summary, /\$540,000/);
+});
