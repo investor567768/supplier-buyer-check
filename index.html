@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supplier Buyer Check: investigate a marketplace supplier before you pay</title>
+<meta name="description" content="Check the company behind a marketplace listing before paying: register, sanctions, website and invoice, with paid answers from Telegraph providers and every source shown.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1115;--panel:#161922;--line:#262b38;--ink:#eceff4;--mute:#9aa2b2;--acc:#5b8cff;--ok:#3fb27f;--warn:#e0a63a;--bad:#e5534b}
+:root.light{--bg:#f5f7fb;--panel:#fff;--line:#dfe3ec;--ink:#151922;--mute:#5a6273;--acc:#2f64ff;--ok:#16865a;--warn:#a86d00;--bad:#c33b33}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Geist,system-ui,sans-serif}
+a{color:var(--acc)}
+.wrap{max-width:880px;margin:0 auto;padding:0 20px}
+header.bar{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header.bar .wrap{display:flex;align-items:center;gap:12px;height:58px}
+.logo{width:30px;height:30px;border-radius:8px;background:var(--acc);color:#fff;display:grid;place-items:center;font-weight:700}
+.brand{font-weight:600}
+.sp{flex:1}
+button.theme{background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font:inherit;font-size:14px;cursor:pointer}
+h1{font-size:clamp(30px,6vw,46px);line-height:1.1;margin:40px 0 14px;letter-spacing:-.02em}
+.lede{color:var(--mute);font-size:18px;max-width:640px;margin:0 0 28px}
+section{margin:36px 0}
+h2{font-size:22px;margin:0 0 12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.grid{grid-template-columns:1fr}}
+label{display:block;font-size:14px;color:var(--mute);margin-bottom:4px}
+input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:11px 12px;font:inherit}
+input:focus{outline:2px solid var(--acc);outline-offset:1px}
+.full{grid-column:1/-1}
+.sub{font-weight:600;margin:16px 0 8px}
+button.run{width:100%;margin-top:14px;background:var(--acc);color:#fff;border:0;border-radius:10px;padding:14px;font:inherit;font-weight:600;cursor:pointer}
+button.run[disabled]{opacity:.6;cursor:wait}
+.hint{font-size:14px;color:var(--mute);margin-top:8px}
+.verdict{border-radius:12px;padding:16px 18px;margin-bottom:14px;border:1px solid}
+.verdict b{display:block;font-size:22px}
+.v-STOP{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent)}
+.v-VERIFY{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.v-PROCEED{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.f{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:12px 0;border-top:1px solid var(--line)}
+.pill{font-size:12px;font-weight:600;border-radius:99px;padding:3px 9px;align-self:start;white-space:nowrap}
+.s-ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.s-stop{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.s-mismatch,.s-check{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.s-not_found,.s-unverified{background:color-mix(in srgb,var(--mute) 18%,transparent);color:var(--mute)}
+.f .src{grid-column:2;font-size:13px;color:var(--mute)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{text-align:left;padding:8px 6px;border-top:1px solid var(--line);vertical-align:top}
+.mono{font-family:'Geist Mono',monospace;font-size:12px;word-break:break-all}
+.err{color:var(--bad)}
+ol.steps{padding-left:20px}
+ol.steps li{margin:6px 0}
+footer{border-top:1px solid var(--line);margin-top:50px;padding:24px 0 40px;color:var(--mute);font-size:14px}
+footer a{margin-right:16px}
+</style>
+</head>
+<body>
+<header class="bar"><div class="wrap">
+  <div class="logo">S</div><div class="brand">Supplier Buyer Check</div><div class="sp"></div>
+  <button class="theme" id="theme">Light</button>
+</div></header>
+
+<main class="wrap">
+  <h1>Found a supplier on a marketplace? Check the company before you pay.</h1>
+  <p class="lede">Enter what the listing and the invoice say. The check buys registry, sanctions and website answers from Telegraph providers, reads the free LEI register, and compares everything. You get one recommendation, with every source and cost shown, and "not found" is never called clean.</p>
+
+  <section>
+    <h2>Run a check</h2>
+    <form class="card" id="form">
+      <div class="sub">From the listing</div>
+      <div class="grid">
+        <div class="full"><label for="supplier">Company name, exactly as listed</label><input id="supplier" required placeholder="e.g. Shenzhen ... Technology Co., Ltd."></div>
+        <div><label for="country">Country</label><input id="country" required placeholder="China"></div>
+        <div><label for="city">City</label><input id="city" placeholder="Shenzhen"></div>
+        <div class="full"><label for="website">Company website, if the listing gives one</label><input id="website" placeholder="www.example.com"></div>
+        <div class="full"><label for="listing_url">Listing link</label><input id="listing_url" placeholder="https://www.alibaba.com/product-detail/..."></div>
+        <div class="full"><label for="claimed_registration">Registration or licence number, if shown</label><input id="claimed_registration" placeholder="optional"></div>
+      </div>
+      <div class="sub">From the invoice or proforma (optional)</div>
+      <div class="grid">
+        <div><label for="invoice_beneficiary">Account holder to pay</label><input id="invoice_beneficiary" placeholder="optional"></div>
+        <div><label for="invoice_bank_country">Bank country</label><input id="invoice_bank_country" placeholder="optional"></div>
+      </div>
+      <div class="sub">Passcode</div>
+      <input id="passcode" type="password" placeholder="Live checks spend testnet funds">
+      <button class="run" id="run" type="submit">Check this supplier</button>
+      <div class="hint">A check makes up to three paid Telegraph calls, each capped at $0.10. It takes up to a minute.</div>
+    </form>
+  </section>
+
+  <section id="out" hidden></section>
+
+  <section>
+    <h2>Saved investigations</h2>
+    <div id="runs" class="card">Loading...</div>
+  </section>
+
+  <section>
+    <h2>What it checks</h2>
+    <ol class="steps">
+      <li><b>Who the company really is.</b> A national register record bought from a Telegraph provider, plus the free GLEIF register. Name, number and country are compared with the listing.</li>
+      <li><b>Sanctions.</b> A paid sanctions screen. If the provider gives no answer, the check says so instead of calling the supplier clean.</li>
+      <li><b>The website.</b> Whether the company has its own site beyond the marketplace storefront, and whether that site is flagged as malicious.</li>
+      <li><b>The invoice.</b> Whether the account you are asked to pay belongs to the same company. A different account holder is the most common marketplace payment fraud.</li>
+    </ol>
+    <p class="hint">It does not check ownership, reviews or product quality. Network: Telegraph testnet.</p>
+  </section>
+</main>
+
+<footer><div class="wrap">
+  <a href="https://github.com/investor567768/supplier-buyer-check">Code ↗</a>
+  <a href="https://telegraph-supplier-detective.vercel.app/">Supplier.Detective ↗</a>
+  <div style="margin-top:10px">Built for Telegraph Hackathon Season II, a prize competition.</div>
+</div></footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const root = document.documentElement;
+try { if (localStorage.getItem('sbc-theme') === 'light') root.classList.add('light'); } catch {}
+const setLabel = () => $('theme').textContent = root.classList.contains('light') ? 'Dark' : 'Light';
+setLabel();
+$('theme').onclick = () => { root.classList.toggle('light'); try { localStorage.setItem('sbc-theme', root.classList.contains('light') ? 'light' : 'dark'); } catch {} setLabel(); };
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const LABEL = { ok: 'OK', stop: 'Stop', mismatch: 'Mismatch', check: 'Ask', not_found: 'Not found', unverified: 'Not checked' };
+
+function render(r) {
+  const vClass = r.verdict.startsWith('STOP') ? 'STOP' : r.verdict.startsWith('VERIFY') ? 'VERIFY' : 'PROCEED';
+  let h = `<h2>Result: ${esc(r.input.supplier)}</h2><div class="card">`;
+  h += `<div class="verdict v-${vClass}"><b>${esc(r.verdict)}</b>${esc(r.why)}</div>`;
+  for (const f of r.findings) h += `<div class="f"><span class="pill s-${f.status}">${LABEL[f.status] || f.status}</span><div><b>${esc(f.area)}.</b> ${esc(f.text)}</div><div class="src">Source: ${esc(f.source)}</div></div>`;
+  h += `</div><h2 style="margin-top:24px">Telegraph requests and receipts</h2><div class="card"><table><tr><th>Intent</th><th>Miner</th><th>Cost</th><th>Receipt / signal</th></tr>`;
+  for (const c of r.telegraph_calls) {
+    const rec = c.payments.map(p => p.receipt_hash).filter(Boolean).join(' ');
+    h += `<tr><td>${esc(c.intent)}${c.error ? `<div class="err">${esc(c.error)}</div>` : ''}</td><td>${esc(c.miner || '-')}</td><td>${c.cost_usd != null ? '$' + c.cost_usd : '-'}</td><td class="mono">${esc(rec || c.signal_hash || '-')}</td></tr>`;
+  }
+  h += `</table><p class="hint">Total paid: $${r.total_cost_usd} on ${esc(r.network)}. Checked ${esc(r.checked_at)}.</p></div>`;
+  $('out').innerHTML = h; $('out').hidden = false; $('out').scrollIntoView({ behavior: 'smooth' });
+}
+
+$('form').onsubmit = async e => {
+  e.preventDefault();
+  const body = {};
+  for (const k of ['supplier', 'country', 'city', 'website', 'listing_url', 'claimed_registration', 'invoice_beneficiary', 'invoice_bank_country', 'passcode']) body[k] = $(k).value.trim();
+  $('run').disabled = true; $('run').textContent = 'Checking, up to a minute...';
+  try {
+    const r = await fetch('/api/check', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'The check failed.');
+    render(j);
+  } catch (err) {
+    $('out').innerHTML = `<div class="card err">${esc(err.message)}</div>`; $('out').hidden = false;
+  } finally { $('run').disabled = false; $('run').textContent = 'Check this supplier'; }
+};
+
+fetch('runs/index.json').then(r => r.json()).then(list => {
+  if (!list.length) { $('runs').textContent = 'The first real investigation will appear here.'; return; }
+  $('runs').innerHTML = list.map((x, i) => `<div class="f" style="${i ? '' : 'border-top:0'}"><span class="pill s-${x.verdict.startsWith('STOP') ? 'stop' : x.verdict.startsWith('VERIFY') ? 'check' : 'ok'}">${esc(x.verdict)}</span><div><b>${esc(x.title)}</b> <a href="#" data-f="${esc(x.file)}">Open</a></div><div class="src">${esc(x.date)} · ${esc(x.summary)}</div></div>`).join('');
+  $('runs').querySelectorAll('a[data-f]').forEach(a => a.onclick = e => { e.preventDefault(); fetch('runs/' + a.dataset.f).then(r => r.json()).then(render); });
+}).catch(() => { $('runs').textContent = 'The first real investigation will appear here.'; });
+</script>
+</body>
+</html>

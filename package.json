@@ -1,0 +1,9 @@
+{
+  "name": "supplier-buyer-check",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Buyer-side supplier check for marketplace listings, paying Telegraph providers for registry, sanctions and website answers",
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test test/*.test.js" }
+}
