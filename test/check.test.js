@@ -148,3 +148,23 @@ test('specialist unreachable: falls back to the router', async () => {
   assert.ok(urls.some(u => u.endsWith('/engine/ask')));
   assert.equal(r.telegraph_calls[1].form, 'router');
 });
+
+test('wrapped direct answers: cost and miner are read from inside; enrichment profile is shown, not treated as a register record', async () => {
+  globalThis.fetch = async (u, opts = {}) => {
+    u = String(u);
+    if (u.includes('api.gleif.org')) return { ok: true, status: 200, json: async () => ({ data: [] }) };
+    const b = JSON.parse(opts.body);
+    if (u.endsWith('/731005') && !b.intent) return { ok: true, status: 200, text: async () => JSON.stringify({ result: { miner_id: '731005', miner_name: 'Counterproof B2B Identity Enrichment', result: { company: null, employee_count: 320000, headquarters: 'Berlin' }, cost_usd: 0.01, signal_hash: '0xs' } }) };
+    if (u.endsWith('/731005')) return { ok: false, status: 400, text: async () => 'Bad Request' };
+    if (u.endsWith('/731002')) return { ok: true, status: 200, text: async () => JSON.stringify({ result: { miner_id: '731002', miner_name: 'Counterproof Sanctions Screener', result: { name: 'Siemens AG', matched: false, lists: ['US OFAC SDN'] }, cost_usd: 0.01 } }) };
+    return { ok: false, status: 400, text: async () => 'Bad Request' };
+  };
+  const r = await investigate({ supplier: 'Siemens AG', country: 'Germany', city: 'Munich' }, 'k');
+  assert.equal(r.telegraph_calls[0].miner, 'Counterproof B2B Identity Enrichment');
+  assert.equal(r.telegraph_calls[0].cost_usd, 0.01);
+  assert.equal(r.telegraph_calls[0].signal_hash, '0xs');
+  assert.ok(r.findings.some(f => f.area === 'Company profile'));
+  assert.ok(r.findings.some(f => f.area === 'Headquarters vs listing'));
+  assert.ok(r.findings.some(f => f.area === 'Sanctions' && f.status === 'ok'));
+  assert.equal(r.total_cost_usd, 0.02);
+});

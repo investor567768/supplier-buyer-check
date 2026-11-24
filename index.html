@@ -150,7 +150,7 @@ function render(r) {
 }
 
 const compared = [];
-const AREAS = ['Registered identity', 'Legal Entity Identifier', 'Registration number', 'Country', 'Sanctions', 'Company website', 'Website safety', 'Website vs company name', 'Payment beneficiary', 'Bank country'];
+const AREAS = ['Registered identity', 'Company profile', 'Headquarters vs listing', 'Legal Entity Identifier', 'Registration number', 'Country', 'Sanctions', 'Company website', 'Website safety', 'Website vs company name', 'Payment beneficiary', 'Bank country'];
 function drawCmp() {
   if (!compared.length) { $('cmp').hidden = true; return; }
   const vc = v => v.startsWith('STOP') ? 'stop' : v.startsWith('VERIFY') ? 'check' : 'ok';

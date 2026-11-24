@@ -83,7 +83,9 @@ async function telegraph(intent, params, query, key, minerId) {
   if (!ok) ok = await attempt('router', { intent, params, max_budget_usdc: BUDGET })
     || await attempt('router (plain)', { query, max_budget_usdc: BUDGET });
   if (!ok) err = tried.join('; ');
-  const body = json || {};
+  // Direct asks come back wrapped: { result: { miner_id, miner_name, result, cost_usd, signal_hash, ... } }.
+  let body = json || {};
+  if (body.result && typeof body.result === 'object' && (body.result.miner_id || body.result.miner_name) && 'result' in body.result) body = { ...body.result, fulfillment: body.fulfillment || body.result.fulfillment };
   const f = body.fulfillment || {};
   return {
     intent, params, form, http_status: status,
@@ -114,13 +116,20 @@ async function gleifQuery(url) {
 }
 // Search in the listing's country first, so an affiliate abroad is not mistaken for the supplier.
 async function gleif(name, code) {
-  const q = `https://api.gleif.org/api/v1/lei-records?filter[fulltext]=${encodeURIComponent(name)}&page[size]=5`;
-  if (code) {
-    const url = `${q}&filter[entity.legalAddress.country]=${code}`;
-    const home = await gleifQuery(url);
-    if (home.records.length || home.error) return { url, scope: 'home', ...home };
+  const base = 'https://api.gleif.org/api/v1/lei-records?page[size]=5';
+  const tries = [
+    code && `${base}&filter[entity.legalName]=${encodeURIComponent(name)}&filter[entity.legalAddress.country]=${code}`,
+    `${base}&filter[entity.legalName]=${encodeURIComponent(name)}`,
+    code && `${base}&filter[fulltext]=${encodeURIComponent(name)}&filter[entity.legalAddress.country]=${code}`,
+    `${base}&filter[fulltext]=${encodeURIComponent(name)}`,
+  ].filter(Boolean);
+  const log = [];
+  for (const url of tries) {
+    const r = await gleifQuery(url);
+    log.push(`${r.error || r.records.length + ' records'}`);
+    if (r.records.length) return { url, log, ...r };
   }
-  return { url: q, scope: 'anywhere', ...(await gleifQuery(q)) };
+  return { url: tries[tries.length - 1], log, records: [], error: log.every(x => /HTTP|reach/.test(x)) ? log[0] : null };
 }
 
 // Read a value from a Telegraph result whether it came back shaped to the Intent or raw.
@@ -177,7 +186,14 @@ async function investigate(input, key) {
   const regId = pick(reg.result, 'registration_id', 'company_number', 'registration_number', 'lei', 'LEI');
   const regActive = pick(reg.result, 'active', 'status');
   const regJur = pick(reg.result, 'jurisdiction', 'country');
-  if (regText) { /* shown above */ }
+  const prof = reg.result && typeof reg.result === 'object' && ('employee_count' in reg.result || 'headquarters' in reg.result || 'industry' in reg.result) && !pick(reg.result, 'legal_name', 'legalName', 'registered_name', 'lei', 'LEI') ? reg.result : null;
+  if (prof) {
+    const bits = [prof.company && `name ${prof.company}`, prof.headquarters && `headquarters ${prof.headquarters}`, prof.employee_count != null && `about ${Number(prof.employee_count).toLocaleString('en-US')} employees`, prof.industry && `industry ${prof.industry}`, prof.domain && `domain ${prof.domain}`].filter(Boolean);
+    add('Company profile', 'check', `Business profile from the Telegraph identity provider: ${bits.join(', ') || 'no details'}. This is a profile, not a register record, so it does not by itself confirm the legal entity.`, `Telegraph identity provider (${reg.miner || 'miner not named'})`);
+    if (s.city && prof.headquarters && !words(prof.headquarters).some(w => words(s.city).includes(w))) add('Headquarters vs listing', 'check', `The listing says ${s.city}; the provider gives headquarters ${prof.headquarters}. Large companies often have several sites, but ask which entity you are buying from.`, 'Telegraph profile vs listing');
+  }
+  if (prof) { /* shown above */ }
+  else if (regText) { /* shown above */ }
   else if (reg.error || !regName) {
     add('Registered identity', 'not_found', `The Telegraph registry provider did not return a record for "${s.supplier}"${reg.error ? ` (${reg.error})` : ''}. Not found is not the same as clean.`, 'Telegraph CORPORATE_REGISTRY_LOOKUP_GENERAL');
   } else {
@@ -251,7 +267,7 @@ async function investigate(input, key) {
   return {
     input: s, verdict, why, findings,
     telegraph_calls: calls,
-    free_sources: [{ source: 'GLEIF', url: lei.url, records: lei.records.length, error: lei.error || null }],
+    free_sources: [{ source: 'GLEIF', url: lei.url, records: lei.records.length, attempts: lei.log, error: lei.error || null }],
     total_cost_usd: Math.round(total * 10000) / 10000,
     network: 'Telegraph testnet',
     checked_at: new Date().toISOString(),
