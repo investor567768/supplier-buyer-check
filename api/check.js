@@ -19,7 +19,7 @@ const SANCTIONS_MINER = process.env.SANCTIONS_MINER || '731002'; // CLEAR / REVI
 class InputError extends Error { constructor(msg) { super(msg); this.status = 400; } }
 
 // ---------- name and place helpers ----------
-const SUFFIXES = ['co', 'ltd', 'limited', 'company', 'inc', 'incorporated', 'corp', 'corporation', 'llc', 'gmbh', 'ag', 'sa', 'srl', 'spa', 'bv', 'plc', 'pte', 'pvt', 'private', 'group', 'holdings', 'holding', 'international', 'intl', 'trading', 'industrial', 'industry', 'technology', 'technologies', 'tech'];
+const SUFFIXES = ['co', 'ltd', 'limited', 'company', 'inc', 'incorporated', 'corp', 'corporation', 'llc', 'gmbh', 'ag', 'sa', 'srl', 'spa', 'bv', 'plc', 'pte', 'pvt', 'private', 'group', 'holdings', 'holding', 'international', 'intl', 'trading', 'industrial', 'industry', 'technology', 'technologies', 'tech', 'aktiengesellschaft', 'gesellschaft', 'mit', 'beschrankter', 'haftung', 'kg', 'kgaa', 'se', 'kabushiki', 'kaisha', 'kk', 'sociedad', 'anonima', 'societe', 'anonyme', 'sas', 'sarl', 'naamloze', 'vennootschap', 'nv', 'besloten', 'limitada', 'ltda', 'oy', 'ab', 'as', 'asa', 'spa', 'sp', 'zoo', 'jsc', 'pjsc', 'ooo', 'oao', 'zao', 'pt', 'tbk', 'bhd', 'sdn', 'the'];
 function words(s) {
   return String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
     .replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
@@ -124,7 +124,7 @@ async function gleifQuery(url) {
 }
 // Search in the listing's country first, so an affiliate abroad is not mistaken for the supplier.
 async function gleif(name, code) {
-  const base = 'https://api.gleif.org/api/v1/lei-records?page[size]=5';
+  const base = 'https://api.gleif.org/api/v1/lei-records?page[size]=10';
   const tries = [
     code && `${base}&filter[entity.legalName]=${encodeURIComponent(name)}&filter[entity.legalAddress.country]=${code}`,
     `${base}&filter[entity.legalName]=${encodeURIComponent(name)}`,

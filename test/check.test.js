@@ -181,5 +181,10 @@ test('LEI: "Siemens AG" is not matched to "Siemens Healthineers AG"', async () =
   };
   const r = await investigate({ supplier: 'Siemens AG', country: 'Germany' }, 'k');
   const f = r.findings.find(x => x.area === 'Legal Entity Identifier');
-  assert.ok(/LEI A/.test(f.text), f.text);
+  assert.ok(/LEI (A|S),/.test(f.text) && !/Healthineers/.test(f.text), f.text);
+});
+
+test('legal-form words in other languages are ignored: Siemens AG = Siemens Aktiengesellschaft', async () => {
+  const { nameMatch } = await import('../api/check.js');
+  assert.equal(nameMatch('Siemens AG', 'Siemens Aktiengesellschaft'), 1);
 });
