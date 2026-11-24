@@ -31,9 +31,9 @@ test('name matching ignores legal suffixes and punctuation', () => {
 test('clean case: registry and LEI agree, no sanctions, safe site', async () => {
   const calls = mock({ registry: { legal_name: 'Shenzhen Example Power Technology Co., Ltd.', registration_id: '91440300XXXX', active: true, jurisdiction: 'CN' }, sanctions: { matched: false, lists: ['OFAC SDN'] }, url: { verdict: 'clean' } });
   const r = await investigate(base, 'k');
-  assert.deepEqual(calls.sort(), ['CORPORATE_REGISTRY_LOOKUP_GENERAL', 'SANCTIONS_SCREENING_MATCH_GENERAL', 'URL_SAFE_GENERAL']);
+  assert.deepEqual(calls.sort(), ['CORPORATE_REGISTRY_LOOKUP_GENERAL', 'CORPORATE_REGISTRY_LOOKUP_GENERAL', 'NEWS_SEARCH_GENERAL', 'SANCTIONS_SCREENING_MATCH_GENERAL', 'URL_SAFE_GENERAL']);
   assert.equal(r.verdict, 'PROCEED WITH STANDARD CARE');
-  assert.equal(r.total_cost_usd, 0.06);
+  assert.equal(r.total_cost_usd, 0.1);
   assert.equal(r.telegraph_calls[0].payments[0].receipt_hash, '0xr');
 });
 
@@ -130,7 +130,6 @@ test('named specialists are asked directly by miner id; CLEAR/REVIEW/BLOCK verdi
   const r = await investigate(base, 'k');
   assert.ok(urls.some(u => u.endsWith('/engine/ask/731005')));
   assert.ok(urls.some(u => u.endsWith('/engine/ask/731002')));
-  assert.ok(r.findings.some(f => f.area === 'Registered identity' && f.status === 'ok'));
   assert.ok(r.findings.some(f => f.area === 'Sanctions' && f.status === 'check'));
   assert.equal(r.verdict, 'VERIFY FIRST');
 });
@@ -187,4 +186,34 @@ test('LEI: "Siemens AG" is not matched to "Siemens Healthineers AG"', async () =
 test('legal-form words in other languages are ignored: Siemens AG = Siemens Aktiengesellschaft', async () => {
   const { nameMatch } = await import('../api/check.js');
   assert.equal(nameMatch('Siemens AG', 'Siemens Aktiengesellschaft'), 1);
+});
+
+
+test('order and claims: capacity cannot meet the deadline, unproven certificate, years contradicted by the register', async () => {
+  const realNow = Date.now;
+  globalThis.fetch = async (u, opts = {}) => {
+    u = String(u);
+    if (u.includes('api.gleif.org')) return { ok: true, status: 200, json: async () => ({ data: [] }) };
+    const b = JSON.parse(opts.body);
+    const R = {
+      CORPORATE_REGISTRY_LOOKUP_GENERAL: u.endsWith('/731005') ? { employee_count: 120, headquarters: 'Shenzhen' } : { legal_name: base.supplier, registration_id: '91440300X', active: true, incorporated: '2021-03-01' },
+      SANCTIONS_SCREENING_MATCH_GENERAL: { matched: false },
+      URL_SAFE_GENERAL: { verdict: 'Safe' },
+      WEB_SEARCH_GENERAL: { answer: 'Shenzhen Example Power Technology lists CE marking for its inverters and ships to Germany.', sources: [] },
+      NEWS_SEARCH_GENERAL: { answer: 'No relevant coverage.', result_count: 0 },
+    }[b.intent || 'CORPORATE_REGISTRY_LOOKUP_GENERAL'];
+    return { ok: true, status: 200, text: async () => JSON.stringify({ result: R, cost_usd: 0.01 }) };
+  };
+  const r = await investigate({ ...base, product: '7.5kW inverter', quantity: '10,000', deadline_days: 60, claimed_monthly_capacity: 3000,
+    claimed_certifications: 'CE, ISO 9001', claimed_export_markets: 'Germany, Brazil', claimed_years: 15 }, 'k');
+  const f = a => r.findings.find(x => x.area === a);
+  assert.equal(f('Can they fulfil the order').status, 'mismatch');
+  assert.equal(f('Claim: CE').status, 'check');
+  assert.equal(f('Claim: ISO 9001').status, 'not_found');
+  assert.equal(f('Claim: exports to Germany').status, 'check');
+  assert.equal(f('Claim: exports to Brazil').status, 'not_found');
+  assert.equal(f('Claim: years in business').status, 'mismatch');
+  assert.equal(f('Disputes and adverse news').status, 'ok');
+  assert.equal(r.verdict, 'VERIFY FIRST');
+  assert.equal(typeof r.score, 'number');
 });

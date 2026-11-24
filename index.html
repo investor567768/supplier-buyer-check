@@ -74,6 +74,12 @@ footer a{margin-right:16px}
     <form class="card" id="form">
       <div class="sub">Try an example, or fill in your own</div>
       <div id="examples" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px"></div>
+      <div class="sub">Your order</div>
+      <div class="grid">
+        <div class="full"><label for="product">Product and specification</label><input id="product" placeholder="e.g. 7.5 kW 3-phase frequency inverter, 380 V"></div>
+        <div><label for="quantity">Quantity</label><input id="quantity" inputmode="numeric" placeholder="10,000"></div>
+        <div><label for="deadline_days">Needed within (days)</label><input id="deadline_days" inputmode="numeric" placeholder="60"></div>
+      </div>
       <div class="sub">From the listing</div>
       <div class="grid">
         <div class="full"><label for="supplier">Company name, exactly as listed</label><input id="supplier" required placeholder="e.g. Shenzhen ... Technology Co., Ltd."></div>
@@ -83,6 +89,13 @@ footer a{margin-right:16px}
         <div class="full"><label for="listing_url">Listing link</label><input id="listing_url" placeholder="https://www.alibaba.com/product-detail/..."></div>
         <div class="full"><label for="claimed_registration">Registration or licence number, if shown</label><input id="claimed_registration" placeholder="optional"></div>
       </div>
+      <div class="sub">What the listing claims</div>
+      <div class="grid">
+        <div class="full"><label for="claimed_certifications">Certifications, separated by commas</label><input id="claimed_certifications" placeholder="CE, ISO 9001, RoHS"></div>
+        <div><label for="claimed_years">Years in business</label><input id="claimed_years" inputmode="numeric" placeholder="12"></div>
+        <div><label for="claimed_monthly_capacity">Production per month (units)</label><input id="claimed_monthly_capacity" inputmode="numeric" placeholder="5,000"></div>
+        <div class="full"><label for="claimed_export_markets">Export markets, separated by commas</label><input id="claimed_export_markets" placeholder="Germany, Brazil, Nigeria"></div>
+      </div>
       <div class="sub">From the invoice or proforma (optional)</div>
       <div class="grid">
         <div><label for="invoice_beneficiary">Account holder to pay</label><input id="invoice_beneficiary" placeholder="optional"></div>
@@ -91,7 +104,7 @@ footer a{margin-right:16px}
       <div class="sub">Passcode</div>
       <input id="passcode" type="password" placeholder="Live checks spend testnet funds">
       <button class="run" id="run" type="submit">Check this supplier</button>
-      <div class="hint">A check makes up to three paid Telegraph calls, each capped at $0.10. It takes up to a minute.</div>
+      <div class="hint">A check makes up to six paid Telegraph calls, about $0.01 each. It takes up to a minute.</div>
     </form>
   </section>
 
@@ -114,10 +127,13 @@ footer a{margin-right:16px}
       <li><b>Who the company really is.</b> A national register record bought from a Telegraph provider, plus the free GLEIF register. Name, number and country are compared with the listing.</li>
       <li><b>Sanctions.</b> A paid sanctions screen. If the provider gives no answer, the check says so instead of calling the supplier clean.</li>
       <li><b>The website.</b> Whether the company has its own site beyond the marketplace storefront, and whether that site is flagged as malicious.</li>
-      <li><b>Side by side.</b> Check several suppliers for the same order and compare them in one table.</li>
+      <li><b>What the listing claims.</b> Certifications, export markets and years in business are checked against independent web and news searches and the register. Each is marked found, not found or contradicted; nothing unproven is called true.</li>
+      <li><b>Can they fulfil your order.</b> Your quantity and deadline against the supplier's claimed capacity.</li>
+      <li><b>Disputes.</b> A paid news search for fraud, lawsuits and recalls.</li>
+      <li><b>Side by side.</b> Check several suppliers for the same order; the table ranks them by evidence.</li>
       <li><b>The invoice.</b> Whether the account you are asked to pay belongs to the same company. A different account holder is the most common marketplace payment fraud.</li>
     </ol>
-    <p class="hint">It does not check ownership, reviews or product quality. Network: Telegraph testnet.</p>
+    <p class="hint">It does not check beneficial ownership or product quality. Network: Telegraph testnet.</p>
   </section>
 </main>
 
@@ -153,17 +169,18 @@ function render(r) {
   $('addcmp').onclick = () => { if (!compared.some(c => c.checked_at === r.checked_at)) compared.push(r); drawCmp(); $('cmp').scrollIntoView({ behavior: 'smooth' }); };
 }
 
-const FIELDS = ['supplier', 'country', 'city', 'website', 'listing_url', 'claimed_registration', 'invoice_beneficiary', 'invoice_bank_country'];
+const FIELDS = ['product', 'quantity', 'deadline_days', 'supplier', 'country', 'city', 'website', 'listing_url', 'claimed_registration', 'claimed_certifications', 'claimed_years', 'claimed_monthly_capacity', 'claimed_export_markets', 'invoice_beneficiary', 'invoice_bank_country'];
 const EXAMPLES = [
   { label: 'Siemens AG (Germany)', supplier: 'Siemens AG', country: 'Germany', city: 'Munich', website: 'www.siemens.com' },
   { label: 'Delta Electronics (Taiwan)', supplier: 'Delta Electronics, Inc.', country: 'Taiwan', city: 'Taipei', website: 'www.deltaww.com' },
   { label: 'Invoice pays someone else', supplier: 'Siemens AG', country: 'Germany', city: 'Munich', website: 'www.siemens.com', invoice_beneficiary: 'Hong Kong Bright Star Trading Limited', invoice_bank_country: 'Hong Kong' },
   { label: 'Sanctioned company', supplier: 'Rosoboronexport', country: 'Russia', city: 'Moscow' },
 ];
-function fill(x) { for (const k of FIELDS) $(k).value = x[k] || ''; save(); }
+const ORDER = ['product', 'quantity', 'deadline_days'];
+function fill(x, keepOrder) { for (const k of FIELDS) { if (keepOrder && ORDER.includes(k) && !(k in x)) continue; $(k).value = x[k] || ''; } save(); }
 function save() { try { const v = {}; for (const k of FIELDS) v[k] = $(k).value; localStorage.setItem('sbc-last', JSON.stringify(v)); if ($('passcode').value) localStorage.setItem('sbc-pass', $('passcode').value); } catch {} }
 $('examples').innerHTML = EXAMPLES.map((x, i) => `<button type="button" class="chip" data-i="${i}">${esc(x.label)}</button>`).join('');
-$('examples').querySelectorAll('.chip').forEach(b => b.onclick = () => fill(EXAMPLES[b.dataset.i]));
+$('examples').querySelectorAll('.chip').forEach(b => b.onclick = () => fill(EXAMPLES[b.dataset.i], true));
 try { const last = JSON.parse(localStorage.getItem('sbc-last') || 'null'); if (last) fill(last); const pw = localStorage.getItem('sbc-pass'); if (pw) $('passcode').value = pw; } catch {}
 for (const k of [...FIELDS, 'passcode']) $(k).addEventListener('change', save);
 
@@ -174,7 +191,10 @@ function drawCmp() {
   const vc = v => v.startsWith('STOP') ? 'stop' : v.startsWith('VERIFY') ? 'check' : 'ok';
   let h = '<tr><th></th>' + compared.map(r => `<th>${esc(r.input.supplier)}<div class="hint">${esc(r.input.city ? r.input.city + ', ' : '')}${esc(r.input.country)}</div></th>`).join('') + '</tr>';
   h += '<tr><td><b>Recommendation</b></td>' + compared.map(r => `<td><span class="pill s-${vc(r.verdict)}">${esc(r.verdict)}</span></td>`).join('') + '</tr>';
-  for (const a of AREAS) {
+  const order = [...AREAS, ...new Set(compared.flatMap(r => r.findings.map(f => f.area)).filter(a => !AREAS.includes(a)))];
+  const ranked = [...compared].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  h += '<tr><td><b>Rank</b></td>' + compared.map(r => `<td><b>#${ranked.indexOf(r) + 1}</b> <span class="hint">score ${r.score ?? '-'}</span></td>`).join('') + '</tr>';
+  for (const a of order) {
     if (!compared.some(r => r.findings.some(f => f.area === a))) continue;
     h += `<tr><td>${esc(a)}</td>` + compared.map(r => { const f = r.findings.find(x => x.area === a); return f ? `<td><span class="pill s-${f.status}">${LABEL[f.status] || f.status}</span><div class="hint">${esc(f.text)}</div></td>` : '<td class="hint">-</td>'; }).join('') + '</tr>';
   }
@@ -186,7 +206,7 @@ $('clear').onclick = e => { e.preventDefault(); compared.length = 0; drawCmp(); 
 $('form').onsubmit = async e => {
   e.preventDefault();
   const body = {};
-  for (const k of ['supplier', 'country', 'city', 'website', 'listing_url', 'claimed_registration', 'invoice_beneficiary', 'invoice_bank_country', 'passcode']) body[k] = $(k).value.trim();
+  for (const k of [...FIELDS, 'passcode']) body[k] = $(k).value.trim();
   $('run').disabled = true; $('run').textContent = 'Checking, up to a minute...';
   try {
     const r = await fetch('/api/check', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });

@@ -48,6 +48,12 @@ function domainOf(u) {
 // Marketplace storefronts are hosted on the marketplace's own domain, so they say nothing about the company.
 const MARKETPLACE = /(^|\.)(alibaba|aliexpress|1688|made-in-china|globalsources|indiamart|dhgate|tradeindia|ec21|tradekey)\.(com|cn|net|org)$/;
 
+const num = v => { const n = Number(String(v ?? '').replace(/[, ]/g, '')); return Number.isFinite(n) && n > 0 ? n : null; };
+const list = v => String(v || '').split(/[,;\n]/).map(x => x.trim()).filter(Boolean).slice(0, 8);
+// Flatten any answer (object or text) into lowercase text for evidence matching.
+const flat = v => (v == null ? '' : typeof v === 'string' ? v : JSON.stringify(v)).toLowerCase();
+const hasTerm = (text, term) => new RegExp(`(^|[^a-z0-9])${String(term).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '[\\s-]*')}($|[^a-z0-9])`).test(text);
+
 // ---------- sources ----------
 // One paid ask. Tries the typed form (intent + params) first; if the node rejects the body (400),
 // retries once in the plain-language form (query), which every ask endpoint accepts.
@@ -162,6 +168,15 @@ async function investigate(input, key) {
     claimed_registration: String(input.claimed_registration || '').trim(),
     invoice_beneficiary: String(input.invoice_beneficiary || '').trim(),
     invoice_bank_country: String(input.invoice_bank_country || '').trim(),
+    // The buyer's order
+    product: String(input.product || '').trim(),
+    quantity: num(input.quantity),
+    deadline_days: num(input.deadline_days),
+    // What the listing claims
+    claimed_certifications: list(input.claimed_certifications),
+    claimed_years: num(input.claimed_years),
+    claimed_monthly_capacity: num(input.claimed_monthly_capacity),
+    claimed_export_markets: list(input.claimed_export_markets),
   };
   if (!s.supplier) throw new InputError('supplier (the company name exactly as the listing shows it) is required.');
   if (!s.country) throw new InputError('country is required, as the listing shows it.');
@@ -169,13 +184,17 @@ async function investigate(input, key) {
   const domain = s.website ? domainOf(s.website) : null;
 
   // Paid and free calls in parallel.
+  const claimsAsked = s.claimed_certifications.length || s.claimed_export_markets.length || s.claimed_years || s.claimed_monthly_capacity;
   const jobs = [
     telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { company: s.supplier, jurisdiction: code || s.country }, `Is "${s.supplier}" (${s.country}) a real, active company? Give its registered legal name, LEI, jurisdiction, status and headquarters.`, key, IDENTITY_MINER),
+    telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { company: s.supplier, jurisdiction: code || s.country }, `Official company register record for "${s.supplier}" in ${s.country}: legal name, registration number, status, incorporation date.`, key),
     telegraph('SANCTIONS_SCREENING_MATCH_GENERAL', { name: s.supplier }, `Is the company "${s.supplier}" (${s.country}) clear to transact with? Screen it against the OFAC, UN, EU and UK sanctions lists.`, key, SANCTIONS_MINER),
     domain && !MARKETPLACE.test(domain) ? telegraph('URL_SAFE_GENERAL', { url: `https://${domain}` }, `Is https://${domain} listed as malicious or phishing on threat feeds?`, key) : null,
     gleif(s.supplier, code),
+    claimsAsked ? telegraph('WEB_SEARCH_GENERAL', { query: `"${s.supplier}" ${s.city} ${[...s.claimed_certifications, ...s.claimed_export_markets].join(' ')} manufacturer certification export` }, `What independent evidence is there that "${s.supplier}" (${s.city ? s.city + ', ' : ''}${s.country}) holds ${s.claimed_certifications.join(', ') || 'any'} certification, exports to ${s.claimed_export_markets.join(', ') || 'other countries'}, and how long it has operated?`, key) : null,
+    telegraph('NEWS_SEARCH_GENERAL', { query: `"${s.supplier}" fraud OR dispute OR lawsuit OR recall OR scam` }, `Find news coverage of fraud, disputes, lawsuits, recalls or scams involving "${s.supplier}" (${s.country}).`, key),
   ];
-  const [reg, sanc, web, lei] = await Promise.all(jobs);
+  const [idc, reg, sanc, web, lei, ws, news] = await Promise.all(jobs);
 
   const findings = [];
   const add = (area, status, text, source) => findings.push({ area, status, text, source });
@@ -197,14 +216,15 @@ async function investigate(input, key) {
   const regId = pick(reg.result, 'registration_id', 'company_number', 'registration_number', 'lei', 'LEI');
   const regActive = pick(reg.result, 'active', 'status');
   const regJur = pick(reg.result, 'jurisdiction', 'country');
-  const prof = reg.result && typeof reg.result === 'object' && ('employee_count' in reg.result || 'headquarters' in reg.result || 'industry' in reg.result) && !pick(reg.result, 'legal_name', 'legalName', 'registered_name', 'lei', 'LEI') ? reg.result : null;
+  const regInc = pick(reg.result, 'incorporated', 'incorporation_date', 'date_of_incorporation', 'founded');
+  const prof = idc.result && typeof idc.result === 'object' && ('employee_count' in idc.result || 'headquarters' in idc.result || 'industry' in idc.result) ? idc.result : null;
+  if (!prof) textAnswer(idc, 'Company profile');
   if (prof) {
     const bits = [prof.company && `name ${prof.company}`, prof.headquarters && `headquarters ${prof.headquarters}`, prof.employee_count != null && `about ${Number(prof.employee_count).toLocaleString('en-US')} employees`, prof.industry && `industry ${prof.industry}`, prof.domain && `domain ${prof.domain}`].filter(Boolean);
-    add('Company profile', 'check', `Business profile from the Telegraph identity provider: ${bits.join(', ') || 'no details'}. This is a profile, not a register record, so it does not by itself confirm the legal entity.`, `Telegraph identity provider (${reg.miner || 'miner not named'})`);
+    add('Company profile', 'check', `Business profile from the Telegraph identity provider: ${bits.join(', ') || 'no details'}. This is a profile, not a register record, so it does not by itself confirm the legal entity.`, `Telegraph identity provider (${idc.miner || 'miner not named'})`);
     if (s.city && prof.headquarters && !words(prof.headquarters).some(w => words(s.city).includes(w))) add('Headquarters vs listing', 'check', `The listing says ${s.city}; the provider gives headquarters ${prof.headquarters}. Large companies often have several sites, but ask which entity you are buying from.`, 'Telegraph profile vs listing');
   }
-  if (prof) { /* shown above */ }
-  else if (regText) { /* shown above */ }
+  if (regText) { /* shown above */ }
   else if (reg.error || !regName) {
     add('Registered identity', 'not_found', `The Telegraph registry provider did not return a record for "${s.supplier}"${reg.error ? ` (${reg.error})` : ''}. Not found is not the same as clean.`, 'Telegraph CORPORATE_REGISTRY_LOOKUP_GENERAL');
   } else {
@@ -265,7 +285,43 @@ async function investigate(input, key) {
     if (code && b && b !== code) add('Bank country', 'check', `The bank is in ${s.invoice_bank_country}, the company in ${s.country}. Can be legitimate (for example Hong Kong accounts for mainland firms), but ask why.`, 'Invoice vs listing');
   }
 
-  // 5. Recommendation
+  // 5. The order and the listing's claims
+  const wsText = ws && !ws.error ? flat(ws.result) : '';
+  const wsSrc = ws ? `Telegraph WEB_SEARCH_GENERAL (${ws.miner || 'miner not named'})` : '';
+  for (const c of s.claimed_certifications) {
+    if (!ws || ws.error) add(`Claim: ${c}`, 'unverified', `Claimed by the listing. The web search gave no usable answer${ws && ws.error ? ` (${ws.error})` : ''}, so the claim is unchecked.`, wsSrc || 'Listing');
+    else if (hasTerm(wsText, c)) add(`Claim: ${c}`, 'check', `Claimed by the listing, and mentioned in independent search results. A mention is not a certificate: ask for the certificate number and check it with the issuing body.`, wsSrc);
+    else add(`Claim: ${c}`, 'not_found', `Claimed by the listing, but no independent evidence found. Treat it as unproven until the supplier sends the certificate.`, wsSrc);
+  }
+  for (const m of s.claimed_export_markets) {
+    if (!ws || ws.error) add(`Claim: exports to ${m}`, 'unverified', 'Claimed by the listing. Not checked.', wsSrc || 'Listing');
+    else add(`Claim: exports to ${m}`, hasTerm(wsText, m) ? 'check' : 'not_found', hasTerm(wsText, m) ? 'Claimed, and mentioned in independent search results. Ask for a past bill of lading or customs record to confirm.' : 'Claimed, but no independent evidence found.', wsSrc);
+  }
+  if (s.claimed_years) {
+    const y = regInc ? (Date.now() - new Date(regInc).getTime()) / 3.156e10 : null;
+    if (y && Number.isFinite(y)) add('Claim: years in business', Math.abs(y - s.claimed_years) <= 1.5 ? 'ok' : 'mismatch', `The listing claims ${s.claimed_years} years; the register shows incorporation on ${String(regInc).slice(0, 10)}, about ${Math.floor(y)} years.`, 'Telegraph registry vs listing');
+    else add('Claim: years in business', 'not_found', `The listing claims ${s.claimed_years} years. No incorporation date was available to check it.`, 'Listing');
+  }
+  if (s.quantity) {
+    if (!s.claimed_monthly_capacity) add('Can they fulfil the order', 'unverified', `The order is ${s.quantity.toLocaleString('en-US')} units${s.product ? ` of ${s.product}` : ''}, but the listing gives no production capacity. Ask for it in writing.`, 'Order vs listing');
+    else {
+      const days = Math.ceil(s.quantity / s.claimed_monthly_capacity * 30);
+      const fits = !s.deadline_days || days <= s.deadline_days;
+      add('Can they fulfil the order', fits ? 'check' : 'mismatch', `${s.quantity.toLocaleString('en-US')} units at the claimed ${s.claimed_monthly_capacity.toLocaleString('en-US')} a month takes about ${days} days${s.deadline_days ? `; the deadline is ${s.deadline_days} days` : ''}. ${fits ? 'It fits on paper, but the capacity figure is the supplier\'s own claim.' : 'The claimed capacity cannot meet the deadline.'}`, 'Order vs listing (computed)');
+    }
+  }
+  // 6. Disputes and adverse news
+  if (news) {
+    const nt = flat(news.result);
+    const count = Number(pick(news.result, 'result_count'));
+    const brief = pick(news.result, 'brief', 'answer');
+    const bad = /fraud|scam|lawsuit|sued|dispute|recall|sanction|counterfeit|seized|indicted/.test(nt) && nameMatch(s.supplier, nt) >= 0.67;
+    if (news.error) add('Disputes and adverse news', 'unverified', `The news search gave no usable answer (${news.error}).`, 'Telegraph NEWS_SEARCH_GENERAL');
+    else if (bad && count !== 0) add('Disputes and adverse news', 'check', `News coverage mentions problems that may involve this supplier${brief ? `: "${String(brief).slice(0, 300)}"` : ''}. Read the sources: a name match can be a different company.`, `Telegraph NEWS_SEARCH_GENERAL (${news.miner || 'miner not named'})`);
+    else add('Disputes and adverse news', 'ok', 'No news coverage of fraud, disputes, lawsuits or recalls found. One news source; absence is not proof.', `Telegraph NEWS_SEARCH_GENERAL (${news.miner || 'miner not named'})`);
+  }
+
+  // 7. Recommendation
   const has = st => findings.some(f => f.status === st);
   const identityConfirmed = findings.some(f => (f.area === 'Registered identity' || f.area === 'Legal Entity Identifier') && f.status === 'ok');
   let verdict, why;
@@ -273,10 +329,12 @@ async function investigate(input, key) {
   else if (has('mismatch') || !identityConfirmed || findings.some(f => f.status === 'unverified' && f.area !== 'Website safety') || sancText || findings.some(f => f.area === 'Sanctions' && f.status === 'check')) { verdict = 'VERIFY FIRST'; why = identityConfirmed ? 'Some details disagree or could not be checked.' : 'The company behind the listing could not be confirmed from an independent register. Ask for the business licence and check it before paying, and use the marketplace\'s payment protection.'; }
   else { verdict = 'PROCEED WITH STANDARD CARE'; why = 'Identity confirmed from an independent register, no sanctions match, no red flags in the documents checked. This is not a guarantee of product quality.'; }
 
-  const calls = [reg, sanc, web].filter(Boolean);
+  const calls = [idc, reg, sanc, web, ws, news].filter(Boolean);
   const total = calls.reduce((t, c) => t + (c.cost_usd || 0), 0);
+  const W = { ok: 3, check: -1, not_found: -2, unverified: -3, mismatch: -8, stop: -100 };
+  const score = findings.reduce((t, f) => t + (W[f.status] ?? 0), 0);
   return {
-    input: s, verdict, why, findings,
+    input: s, verdict, why, findings, score,
     telegraph_calls: calls,
     free_sources: [{ source: 'GLEIF', url: lei.url, records: lei.records.length, attempts: lei.log, error: lei.error || null }],
     total_cost_usd: Math.round(total * 10000) / 10000,
