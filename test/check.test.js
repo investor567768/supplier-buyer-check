@@ -234,7 +234,7 @@ test('wrong company from the registry is not used for years; generic-word news i
   const r = await investigate({ supplier: 'Yueqing Haiyin Electric Co., Ltd.', country: 'China', claimed_years: 4, claimed_certifications: 'CE' }, 'k');
   const f = a => r.findings.find(x => x.area === a);
   assert.equal(f('Claim: years in business').status, 'not_found');
-  assert.match(f('Registered identity').text, /different company/);
+  assert.match(f('Registered identity').text, /different company/); assert.equal(f('Registered identity').status, 'unverified');
   assert.equal(f('Disputes and adverse news').status, 'ok');
 });
 
@@ -245,4 +245,14 @@ test('money at risk: STOP shows the deposit the check protects', async () => {
   assert.equal(r.money.order_value, 1800000);
   assert.equal(r.money.deposit_at_risk, 540000);
   assert.match(r.money.summary, /\$540,000/);
+});
+
+test('seller size: 70 staff cannot make 10,000 units in 60 days; 390 staff can; trader flagged', async () => {
+  mock({ registry: { legal_name: base.supplier, active: true }, sanctions: { matched: false }, url: { verdict: 'clean' } });
+  const small = await investigate({ ...base, quantity: 10000, deadline_days: 60, staff: 70, factory_m2: 2100, business_type: 'Manufacturer, Trading Company' }, 'k');
+  const big = await investigate({ ...base, quantity: 10000, deadline_days: 60, staff: 390, factory_m2: 58000, business_type: 'Manufacturer' }, 'k');
+  assert.equal(small.findings.find(f => f.area === 'Seller size vs order').status, 'mismatch');
+  assert.ok(small.findings.some(f => f.area === 'Manufacturer or trader'));
+  assert.equal(big.findings.find(f => f.area === 'Seller size vs order').status, 'ok');
+  assert.ok(big.score > small.score);
 });

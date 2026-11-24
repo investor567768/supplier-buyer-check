@@ -103,6 +103,9 @@ footer a{margin-right:16px}
         <div><label for="claimed_years">Years in business</label><input id="claimed_years" inputmode="numeric" placeholder="12"></div>
         <div><label for="claimed_monthly_capacity">Production per month (units)</label><input id="claimed_monthly_capacity" inputmode="numeric" placeholder="5,000"></div>
         <div class="full"><label for="claimed_export_markets">Export markets, separated by commas</label><input id="claimed_export_markets" placeholder="Germany, Brazil, Nigeria"></div>
+        <div><label for="staff">Staff</label><input id="staff" inputmode="numeric" placeholder="70"></div>
+        <div><label for="factory_m2">Factory size (m²)</label><input id="factory_m2" inputmode="numeric" placeholder="2,100"></div>
+        <div class="full"><label for="business_type">Business type</label><input id="business_type" placeholder="Manufacturer, Trading Company"></div>
       </div>
       <div class="sub">From the invoice or proforma (optional)</div>
       <div class="grid">
@@ -177,7 +180,7 @@ function render(r) {
   $('addcmp').onclick = () => { if (!compared.some(c => c.checked_at === r.checked_at)) compared.push(r); drawCmp(); $('cmp').scrollIntoView({ behavior: 'smooth' }); };
 }
 
-const FIELDS = ['product', 'quantity', 'deadline_days', 'unit_price', 'deposit_pct', 'supplier', 'country', 'city', 'website', 'listing_url', 'claimed_registration', 'claimed_certifications', 'claimed_years', 'claimed_monthly_capacity', 'claimed_export_markets', 'invoice_beneficiary', 'invoice_bank_country'];
+const FIELDS = ['product', 'quantity', 'deadline_days', 'unit_price', 'deposit_pct', 'supplier', 'country', 'city', 'website', 'listing_url', 'claimed_registration', 'claimed_certifications', 'claimed_years', 'claimed_monthly_capacity', 'claimed_export_markets', 'staff', 'factory_m2', 'business_type', 'invoice_beneficiary', 'invoice_bank_country'];
 const EXAMPLES = [
   { label: 'Siemens AG (Germany)', supplier: 'Siemens AG', country: 'Germany', city: 'Munich', website: 'www.siemens.com' },
   { label: 'Delta Electronics (Taiwan)', supplier: 'Delta Electronics, Inc.', country: 'Taiwan', city: 'Taipei', website: 'www.deltaww.com' },
@@ -212,6 +215,9 @@ function parseListing(t) {
   const site = t.match(/\b(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+\.(?:com|cn|net|com\.cn|de|co))\b/gi);
   const own = (site || []).find(x => !/alibaba|aliexpress|1688|alicdn|taobao/i.test(x)); if (own) out.website = own;
   const url = t.match(/https?:\/\/[^\s]*alibaba\.com\/product-detail\/[^\s]+/i); if (url) out.listing_url = url[0];
+  const st = t.match(/([\d,]+)\+?\s*staff/i); if (st) out.staff = st[1].replace(/,/g, '');
+  const fa = t.match(/([\d,]+)\+?\s*(?:m²|m2|square met)/i); if (fa) out.factory_m2 = fa[1].replace(/,/g, '');
+  const bt = t.match(/(Manufacturer\s*,?\s*Trading Company|Trading Company|Manufacturer)/i); if (bt) out.business_type = bt[1];
   return out;
 }
 $('paste').addEventListener('input', () => {
@@ -219,7 +225,7 @@ $('paste').addEventListener('input', () => {
   const got = parseListing(t);
   for (const [k, v] of Object.entries(got)) if (v) $(k).value = v;
   save();
-  const names = { supplier: 'company', country: 'country', city: 'city', claimed_years: 'years', claimed_certifications: 'certifications', claimed_monthly_capacity: 'capacity', claimed_export_markets: 'markets', website: 'website', listing_url: 'link' };
+  const names = { supplier: 'company', country: 'country', city: 'city', claimed_years: 'years', claimed_certifications: 'certifications', claimed_monthly_capacity: 'capacity', claimed_export_markets: 'markets', website: 'website', listing_url: 'link', staff: 'staff', factory_m2: 'factory size', business_type: 'business type' };
   const filled = Object.keys(got).filter(k => got[k]).map(k => names[k]);
   $('pastemsg').textContent = filled.length ? `Filled in: ${filled.join(', ')}. Check them, then run the check.` : 'Nothing recognised. Try copying the seller\'s company profile page.';
 });
@@ -244,7 +250,7 @@ $('supplier').addEventListener('input', () => {
 $('supplier').addEventListener('blur', () => setTimeout(() => $('sugg').style.display = 'none', 150));
 
 const compared = [];
-const AREAS = ['Registered identity', 'Company profile', 'Headquarters vs listing', 'Legal Entity Identifier', 'Registration number', 'Country', 'Sanctions', 'Company website', 'Website safety', 'Website vs company name', 'Payment beneficiary', 'Bank country'];
+const AREAS = ['Seller size vs order', 'Claimed capacity vs seller size', 'Manufacturer or trader', 'Registered identity', 'Company profile', 'Headquarters vs listing', 'Legal Entity Identifier', 'Registration number', 'Country', 'Sanctions', 'Company website', 'Website safety', 'Website vs company name', 'Payment beneficiary', 'Bank country'];
 function drawCmp() {
   if (!compared.length) { $('cmp').hidden = true; return; }
   const vc = v => v.startsWith('STOP') ? 'stop' : v.startsWith('VERIFY') ? 'check' : 'ok';

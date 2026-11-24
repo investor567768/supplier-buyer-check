@@ -179,6 +179,9 @@ async function investigate(input, key) {
     claimed_years: num(input.claimed_years),
     claimed_monthly_capacity: num(input.claimed_monthly_capacity),
     claimed_export_markets: list(input.claimed_export_markets),
+    staff: num(input.staff),
+    factory_m2: num(input.factory_m2),
+    business_type: String(input.business_type || '').trim(),
   };
   if (!s.supplier) throw new InputError('supplier (the company name exactly as the listing shows it) is required.');
   if (!s.country) throw new InputError('country is required, as the listing shows it.');
@@ -313,6 +316,22 @@ async function investigate(input, key) {
       add('Can they fulfil the order', fits ? 'check' : 'mismatch', `${s.quantity.toLocaleString('en-US')} units at the claimed ${s.claimed_monthly_capacity.toLocaleString('en-US')} a month takes about ${days} days${s.deadline_days ? `; the deadline is ${s.deadline_days} days` : ''}. ${fits ? 'It fits on paper, but the capacity figure is the supplier\'s own claim.' : 'The claimed capacity cannot meet the deadline.'}`, 'Order vs listing (computed)');
     }
   }
+  // 5b. Is the seller big enough to make this order itself?
+  if (s.quantity && (s.staff || s.factory_m2)) {
+    const months = s.deadline_days ? s.deadline_days / 30 : 1;
+    const perMonth = s.quantity / months;
+    // Rough benchmark for assembled electrical equipment: about 25 units per worker per month.
+    const staffCap = s.staff ? s.staff * 25 : null;
+    const bits = [s.staff && `${s.staff.toLocaleString('en-US')} staff`, s.factory_m2 && `${s.factory_m2.toLocaleString('en-US')} m² of floor space`].filter(Boolean).join(' and ');
+    if (staffCap && perMonth > staffCap * 1.5)
+      add('Seller size vs order', 'mismatch', `The order needs about ${Math.round(perMonth).toLocaleString('en-US')} units a month. With ${bits}, a rough benchmark of 25 units per worker per month gives about ${staffCap.toLocaleString('en-US')}. The seller may subcontract or resell another factory's goods. Ask which factory makes the order and visit or audit it.`, 'Listing figures vs order (rough benchmark, computed)');
+    else if (staffCap)
+      add('Seller size vs order', 'ok', `The order needs about ${Math.round(perMonth).toLocaleString('en-US')} units a month; ${bits} is plausible for that on a rough benchmark of 25 units per worker per month.`, 'Listing figures vs order (rough benchmark, computed)');
+    if (s.claimed_monthly_capacity && staffCap && s.claimed_monthly_capacity > staffCap * 3)
+      add('Claimed capacity vs seller size', 'mismatch', `The listing claims ${s.claimed_monthly_capacity.toLocaleString('en-US')} units a month, more than three times what ${bits} would suggest. Treat the capacity figure as unproven.`, 'Listing figures (computed)');
+  }
+  if (/trad/i.test(s.business_type)) add('Manufacturer or trader', 'check', `The listing describes the seller as "${s.business_type}". A trading company may not make the goods itself. Ask for the name and address of the factory and check that company too.`, 'Listing');
+
   // 6. Disputes and adverse news
   if (news) {
     const nt = flat(news.result);
