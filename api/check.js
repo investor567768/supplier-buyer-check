@@ -88,8 +88,8 @@ async function telegraph(intent, params, query, key, minerId) {
   let ok = false;
   if (minerId) ok = await attempt(`miner ${minerId}`, { intent, params, query }, minerId)
     || await attempt(`miner ${minerId} (plain)`, { query }, minerId);
-  if (!ok) ok = await attempt('router', { intent, params, max_budget_usdc: BUDGET })
-    || await attempt('router (plain)', { query, max_budget_usdc: BUDGET });
+  if (!ok) ok = await attempt('router', { intent, params })
+    || await attempt('router (plain)', { query });
   if (!ok) err = tried.join('; ');
   // Direct asks come back wrapped: { result: { miner_id, miner_name, result, cost_usd, signal_hash, ... } }.
   let body = json || {};
