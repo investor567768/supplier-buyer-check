@@ -31,6 +31,8 @@ label{display:block;font-size:14px;color:var(--mute);margin-bottom:4px}
 input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:11px 12px;font:inherit}
 input:focus{outline:2px solid var(--acc);outline-offset:1px}
 .full{grid-column:1/-1}
+.chip{background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:99px;padding:7px 12px;font:inherit;font-size:14px;cursor:pointer}
+.chip:hover{border-color:var(--acc)}
 .sub{font-weight:600;margin:16px 0 8px}
 button.run{width:100%;margin-top:14px;background:var(--acc);color:#fff;border:0;border-radius:10px;padding:14px;font:inherit;font-weight:600;cursor:pointer}
 button.run[disabled]{opacity:.6;cursor:wait}
@@ -70,6 +72,8 @@ footer a{margin-right:16px}
   <section>
     <h2>Run a check</h2>
     <form class="card" id="form">
+      <div class="sub">Try an example, or fill in your own</div>
+      <div id="examples" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px"></div>
       <div class="sub">From the listing</div>
       <div class="grid">
         <div class="full"><label for="supplier">Company name, exactly as listed</label><input id="supplier" required placeholder="e.g. Shenzhen ... Technology Co., Ltd."></div>
@@ -148,6 +152,20 @@ function render(r) {
   $('out').innerHTML = h; $('out').hidden = false; $('out').scrollIntoView({ behavior: 'smooth' });
   $('addcmp').onclick = () => { if (!compared.some(c => c.checked_at === r.checked_at)) compared.push(r); drawCmp(); $('cmp').scrollIntoView({ behavior: 'smooth' }); };
 }
+
+const FIELDS = ['supplier', 'country', 'city', 'website', 'listing_url', 'claimed_registration', 'invoice_beneficiary', 'invoice_bank_country'];
+const EXAMPLES = [
+  { label: 'Siemens AG (Germany)', supplier: 'Siemens AG', country: 'Germany', city: 'Munich', website: 'www.siemens.com' },
+  { label: 'Delta Electronics (Taiwan)', supplier: 'Delta Electronics, Inc.', country: 'Taiwan', city: 'Taipei', website: 'www.deltaww.com' },
+  { label: 'Invoice pays someone else', supplier: 'Siemens AG', country: 'Germany', city: 'Munich', website: 'www.siemens.com', invoice_beneficiary: 'Hong Kong Bright Star Trading Limited', invoice_bank_country: 'Hong Kong' },
+  { label: 'Sanctioned company', supplier: 'Rosoboronexport', country: 'Russia', city: 'Moscow' },
+];
+function fill(x) { for (const k of FIELDS) $(k).value = x[k] || ''; save(); }
+function save() { try { const v = {}; for (const k of FIELDS) v[k] = $(k).value; localStorage.setItem('sbc-last', JSON.stringify(v)); if ($('passcode').value) localStorage.setItem('sbc-pass', $('passcode').value); } catch {} }
+$('examples').innerHTML = EXAMPLES.map((x, i) => `<button type="button" class="chip" data-i="${i}">${esc(x.label)}</button>`).join('');
+$('examples').querySelectorAll('.chip').forEach(b => b.onclick = () => fill(EXAMPLES[b.dataset.i]));
+try { const last = JSON.parse(localStorage.getItem('sbc-last') || 'null'); if (last) fill(last); const pw = localStorage.getItem('sbc-pass'); if (pw) $('passcode').value = pw; } catch {}
+for (const k of [...FIELDS, 'passcode']) $(k).addEventListener('change', save);
 
 const compared = [];
 const AREAS = ['Registered identity', 'Company profile', 'Headquarters vs listing', 'Legal Entity Identifier', 'Registration number', 'Country', 'Sanctions', 'Company website', 'Website safety', 'Website vs company name', 'Payment beneficiary', 'Bank country'];
