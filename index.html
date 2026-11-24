@@ -28,10 +28,12 @@ h2{font-size:22px;margin:0 0 12px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:640px){.grid{grid-template-columns:1fr}}
 label{display:block;font-size:14px;color:var(--mute);margin-bottom:4px}
-input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:11px 12px;font:inherit}
-input:focus{outline:2px solid var(--acc);outline-offset:1px}
+input,textarea{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:11px 12px;font:inherit}
+input:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:1px}
 .full{grid-column:1/-1}
 .chip{background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:99px;padding:7px 12px;font:inherit;font-size:14px;cursor:pointer}
+.sg{padding:9px 10px;border-radius:8px;cursor:pointer}
+.sg:hover{background:var(--line)}
 .chip:hover{border-color:var(--acc)}
 .sub{font-weight:600;margin:16px 0 8px}
 button.run{width:100%;margin-top:14px;background:var(--acc);color:#fff;border:0;border-radius:10px;padding:14px;font:inherit;font-weight:600;cursor:pointer}
@@ -72,7 +74,11 @@ footer a{margin-right:16px}
   <section>
     <h2>Run a check</h2>
     <form class="card" id="form">
-      <div class="sub">Try an example, or fill in your own</div>
+      <div class="sub">Fill it in for me</div>
+      <label for="paste">Copy the seller's Alibaba page (Ctrl + A, Ctrl + C) and paste it here</label>
+      <textarea id="paste" rows="3" placeholder="Paste the listing or company profile text. Name, location, years, certifications, capacity and markets are filled in for you."></textarea>
+      <div class="hint" id="pastemsg"></div>
+      <div class="sub">Or try an example</div>
       <div id="examples" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px"></div>
       <div class="sub">Your order</div>
       <div class="grid">
@@ -82,7 +88,7 @@ footer a{margin-right:16px}
       </div>
       <div class="sub">From the listing</div>
       <div class="grid">
-        <div class="full"><label for="supplier">Company name, exactly as listed</label><input id="supplier" required placeholder="e.g. Shenzhen ... Technology Co., Ltd."></div>
+        <div class="full" style="position:relative"><label for="supplier">Company name, exactly as listed</label><input id="supplier" required autocomplete="off" placeholder="Start typing, e.g. Zhejiang Lefoo"><div id="sugg" class="card" style="display:none;position:absolute;left:0;right:0;z-index:4;padding:6px;margin-top:4px"></div></div>
         <div><label for="country">Country</label><input id="country" required placeholder="China"></div>
         <div><label for="city">City</label><input id="city" placeholder="Shenzhen"></div>
         <div class="full"><label for="website">Company website, if the listing gives one</label><input id="website" placeholder="www.example.com"></div>
@@ -183,6 +189,55 @@ $('examples').innerHTML = EXAMPLES.map((x, i) => `<button type="button" class="c
 $('examples').querySelectorAll('.chip').forEach(b => b.onclick = () => fill(EXAMPLES[b.dataset.i], true));
 try { const last = JSON.parse(localStorage.getItem('sbc-last') || 'null'); if (last) fill(last); const pw = localStorage.getItem('sbc-pass'); if (pw) $('passcode').value = pw; } catch {}
 for (const k of [...FIELDS, 'passcode']) $(k).addEventListener('change', save);
+
+// ---------- Fill it in for me ----------
+const CC = { CN: 'China', HK: 'Hong Kong', TW: 'Taiwan', DE: 'Germany', US: 'United States', IN: 'India', VN: 'Vietnam', TR: 'Turkey', JP: 'Japan', KR: 'South Korea', GB: 'United Kingdom', IT: 'Italy' };
+const CERTS = ['CE', 'ISO 9001', 'ISO 14001', 'ISO 45001', 'RoHS', 'UL', 'CCC', 'FCC', 'TUV', 'CB', 'SGS', 'IEC', 'REACH', 'ETL', 'CSA', 'EMC', 'IP65', 'IP54'];
+function parseListing(t) {
+  const out = {}, lines = t.split(/\n+/).map(x => x.trim()).filter(Boolean);
+  const co = lines.find(l => /(co\.?,?\s*ltd\.?|limited|corporation|inc\.?|gmbh|llc|company)\s*$/i.test(l) && l.length < 90);
+  if (co) out.supplier = co.replace(/\s+/g, ' ');
+  const y = t.match(/(\d{1,2})\s*yrs?\b/i); if (y) out.claimed_years = y[1];
+  const loc = t.match(/\b([A-Z][a-z]+),\s*(China|Taiwan|Vietnam|India|Turkey)\b/);
+  if (loc) { out.country = loc[2]; out.city = loc[1]; }
+  else if (/\bChina\b|\bCN\b/.test(t)) out.country = 'China';
+  const cap = t.match(/supply ability[:\s]*([\d,.]+)\s*(?:[a-z\/()]+\s*){0,3}?per\s*(day|week|month|year)/i);
+  if (cap) { const n = Number(cap[1].replace(/,/g, '')); const f = { day: 30, week: 4.3, month: 1, year: 1 / 12 }[cap[2].toLowerCase()]; out.claimed_monthly_capacity = String(Math.round(n * f)); }
+  const certs = CERTS.filter(c => new RegExp(`(^|[^A-Za-z0-9])${c.replace(' ', '\\s?')}([^A-Za-z0-9]|$)`).test(t));
+  if (certs.length) out.claimed_certifications = certs.join(', ');
+  const mk = t.match(/main markets?[:\s]*([^\n]{3,160})/i);
+  if (mk) out.claimed_export_markets = mk[1].replace(/\d+(\.\d+)?%/g, '').replace(/\s{2,}/g, ' ').split(/[,;|]/).map(x => x.trim()).filter(x => /^[A-Za-z][A-Za-z .&-]{2,30}$/.test(x)).slice(0, 6).join(', ');
+  const site = t.match(/\b(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+\.(?:com|cn|net|com\.cn|de|co))\b/gi);
+  const own = (site || []).find(x => !/alibaba|aliexpress|1688|alicdn|taobao/i.test(x)); if (own) out.website = own;
+  const url = t.match(/https?:\/\/[^\s]*alibaba\.com\/product-detail\/[^\s]+/i); if (url) out.listing_url = url[0];
+  return out;
+}
+$('paste').addEventListener('input', () => {
+  const t = $('paste').value; if (t.length < 20) { $('pastemsg').textContent = ''; return; }
+  const got = parseListing(t);
+  for (const [k, v] of Object.entries(got)) if (v) $(k).value = v;
+  save();
+  const names = { supplier: 'company', country: 'country', city: 'city', claimed_years: 'years', claimed_certifications: 'certifications', claimed_monthly_capacity: 'capacity', claimed_export_markets: 'markets', website: 'website', listing_url: 'link' };
+  const filled = Object.keys(got).filter(k => got[k]).map(k => names[k]);
+  $('pastemsg').textContent = filled.length ? `Filled in: ${filled.join(', ')}. Check them, then run the check.` : 'Nothing recognised. Try copying the seller\'s company profile page.';
+});
+// Company name suggestions from the free GLEIF register
+let tmr = null;
+$('supplier').addEventListener('input', () => {
+  clearTimeout(tmr); const q = $('supplier').value.trim();
+  if (q.length < 3) { $('sugg').style.display = 'none'; return; }
+  tmr = setTimeout(async () => {
+    try {
+      const r = await fetch(`https://api.gleif.org/api/v1/lei-records?filter[fulltext]=${encodeURIComponent(q)}&page[size]=6`, { headers: { accept: 'application/vnd.api+json' } });
+      const j = await r.json(); const d = (j.data || []).map(x => x.attributes.entity);
+      if (!d.length) { $('sugg').style.display = 'none'; return; }
+      $('sugg').innerHTML = d.map((e, i) => `<div class="sg" data-i="${i}"><b>${esc(e.legalName.name)}</b><div class="hint">${esc(e.legalAddress.city || '')}, ${esc(CC[e.legalAddress.country] || e.legalAddress.country)}${e.registeredAs ? ' · ' + esc(e.registeredAs) : ''}</div></div>`).join('') + '<div class="hint" style="padding:6px 10px">From the GLEIF register. Not listed? Just keep typing.</div>';
+      $('sugg').style.display = 'block';
+      $('sugg').querySelectorAll('.sg').forEach(el => el.onmousedown = () => { const e = d[el.dataset.i]; $('supplier').value = e.legalName.name; $('country').value = CC[e.legalAddress.country] || e.legalAddress.country; $('city').value = e.legalAddress.city || ''; if (e.registeredAs) $('claimed_registration').value = e.registeredAs; $('sugg').style.display = 'none'; save(); });
+    } catch { $('sugg').style.display = 'none'; }
+  }, 300);
+});
+$('supplier').addEventListener('blur', () => setTimeout(() => $('sugg').style.display = 'none', 150));
 
 const compared = [];
 const AREAS = ['Registered identity', 'Company profile', 'Headquarters vs listing', 'Legal Entity Identifier', 'Registration number', 'Country', 'Sanctions', 'Company website', 'Website safety', 'Website vs company name', 'Payment beneficiary', 'Bank country'];
