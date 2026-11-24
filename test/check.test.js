@@ -146,5 +146,5 @@ test('specialist unreachable: falls back to the router', async () => {
   };
   const r = await investigate(base, 'k');
   assert.ok(urls.some(u => u.endsWith('/engine/ask')));
-  assert.equal(r.telegraph_calls[1].form, 'intent (router)');
+  assert.equal(r.telegraph_calls[1].form, 'router');
 });

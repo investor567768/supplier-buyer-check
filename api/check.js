@@ -68,32 +68,35 @@ function errText(status, json) {
 async function telegraph(intent, params, query, key, minerId) {
   const started = Date.now();
   let form = minerId ? `miner ${minerId}` : 'intent';
-  // Named specialist first (direct ask), then the router if the specialist cannot be reached.
-  let { status, json, err } = minerId
-    ? await postAsk({ intent, params, query }, key, minerId)
-    : await postAsk({ intent, params, max_budget_usdc: BUDGET }, key);
-  if (minerId && (err || status >= 400)) {
-    form = 'intent (router)';
-    ({ status, json, err } = await postAsk({ intent, params, max_budget_usdc: BUDGET }, key));
-  }
-  if (!err && status === 400) {
-    const first = errText(status, json);
-    form = 'query (router)';
-    ({ status, json, err } = await postAsk({ query, max_budget_usdc: BUDGET }, key));
-    if (!err && status >= 400) err = `typed ask refused (${first}); plain ask refused (${errText(status, json)})`;
-  }
+  // Named specialist first (direct ask): typed form, then plain question. Then the router.
+  const tried = [];
+  let status = 0, json = null, err = null;
+  const attempt = async (label, body, id) => {
+    ({ status, json, err } = await postAsk(body, key, id));
+    form = label;
+    if (err || status >= 400) tried.push(`${label}: ${err || errText(status, json)}`);
+    return !err && status < 400;
+  };
+  let ok = false;
+  if (minerId) ok = await attempt(`miner ${minerId}`, { intent, params, query }, minerId)
+    || await attempt(`miner ${minerId} (plain)`, { query }, minerId);
+  if (!ok) ok = await attempt('router', { intent, params, max_budget_usdc: BUDGET })
+    || await attempt('router (plain)', { query, max_budget_usdc: BUDGET });
+  if (!ok) err = tried.join('; ');
   const body = json || {};
   const f = body.fulfillment || {};
   return {
     intent, params, form, http_status: status,
     error: err || (status >= 400 ? errText(status, body) : null),
-    miner: body.miner_name || body.miner_id || null,
+    miner: body.miner_name || body.miner_id || body.miner || (minerId && !String(form).startsWith('router') ? `#${minerId}` : null),
     result: body.result !== undefined ? body.result : (body.answer !== undefined ? body.answer : null),
     result_shape: body.result_shape || null,
     fulfillment_status: f.status || null,
-    cost_usd: body.cost_usd != null ? Number(body.cost_usd) : (body.costUsd != null ? Number(body.costUsd) : null),
-    signal_hash: body.signal_hash || null,
+    cost_usd: body.cost_usd != null ? Number(body.cost_usd) : body.costUsd != null ? Number(body.costUsd) : body.price_usd != null ? Number(body.price_usd) : null,
+    signal_hash: body.signal_hash || body.signalHash || body.receipt_hash || null,
     payments: Array.isArray(f.payments) ? f.payments.map(p => ({ miner: p.miner, intent: p.intent, amount_uusdc: p.amount_uusdc, receipt_hash: p.receipt_hash })) : [],
+    raw_keys: json && typeof json === 'object' ? Object.keys(json).slice(0, 20) : [],
+    raw_preview: json ? JSON.stringify(json).slice(0, 600) : null,
     ms: Date.now() - started,
   };
 }
