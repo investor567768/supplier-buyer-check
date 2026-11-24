@@ -216,7 +216,8 @@ async function investigate(input, key) {
   const regId = pick(reg.result, 'registration_id', 'company_number', 'registration_number', 'lei', 'LEI');
   const regActive = pick(reg.result, 'active', 'status');
   const regJur = pick(reg.result, 'jurisdiction', 'country');
-  const regInc = pick(reg.result, 'incorporated', 'incorporation_date', 'date_of_incorporation', 'founded');
+  const regSame = regName ? nameMatch(s.supplier, regName) >= 0.67 : false;
+  const regInc = regSame ? pick(reg.result, 'incorporated', 'incorporation_date', 'date_of_incorporation', 'founded') : undefined;
   const prof = idc.result && typeof idc.result === 'object' && ('employee_count' in idc.result || 'headquarters' in idc.result || 'industry' in idc.result) ? idc.result : null;
   if (!prof) textAnswer(idc, 'Company profile');
   if (prof) {
@@ -230,9 +231,9 @@ async function investigate(input, key) {
   } else {
     const m = nameMatch(s.supplier, regName);
     add('Registered identity', m >= 0.67 ? 'ok' : 'mismatch',
-      `Registry record: ${regName}${regId ? `, registration ${regId}` : ''}${regJur ? `, ${regJur}` : ''}${regActive !== undefined ? `, active: ${regActive}` : ''}. Name agreement with the listing: ${Math.round(m * 100)}%.`,
+      `${m >= 0.67 ? 'Registry record' : 'The registry provider returned a different company'}: ${regName}${regId ? `, registration ${regId}` : ''}${regJur ? `, ${regJur}` : ''}${regActive !== undefined ? `, active: ${regActive}` : ''}. Name agreement with the listing: ${Math.round(m * 100)}%.`,
       `Telegraph CORPORATE_REGISTRY_LOOKUP_GENERAL (${reg.miner || 'miner not named'})`);
-    if (s.claimed_registration && regId && String(regId).replace(/\W/g, '').toUpperCase() !== s.claimed_registration.replace(/\W/g, '').toUpperCase())
+    if (m >= 0.67 && s.claimed_registration && regId && String(regId).replace(/\W/g, '').toUpperCase() !== s.claimed_registration.replace(/\W/g, '').toUpperCase())
       add('Registration number', 'mismatch', `The listing or document gives ${s.claimed_registration}, the registry record says ${regId}.`, 'Telegraph registry vs listing');
   }
   // Free second source
@@ -315,10 +316,14 @@ async function investigate(input, key) {
     const nt = flat(news.result);
     const count = Number(pick(news.result, 'result_count'));
     const brief = pick(news.result, 'brief', 'answer');
-    const bad = /fraud|scam|lawsuit|sued|dispute|recall|sanction|counterfeit|seized|indicted/.test(nt) && nameMatch(s.supplier, nt) >= 0.67;
+    const GENERIC = ['electric', 'electrical', 'electronic', 'electronics', 'machinery', 'machine', 'equipment', 'power', 'energy', 'control', 'controls', 'industrial', 'manufacturing', 'products', 'trade', 'import', 'export', 'global', 'new', 'china', 'zhejiang', 'guangdong', 'shenzhen'];
+    const key = core(s.supplier).filter(w => !GENERIC.includes(w) && w.length > 2);
+    const body = nt.split(flat(s.supplier)).join(' ').replace(/"[^"]*(fraud or dispute|lawsuit or recall)[^"]*"/g, ' ');
+    const named = key.length && key.every(w => new RegExp(`\\b${w}\\b`).test(body));
+    const bad = /fraud|scam|lawsuit|sued|dispute|recall|sanction|counterfeit|seized|indicted/.test(body) && named;
     if (news.error) add('Disputes and adverse news', 'unverified', `The news search gave no usable answer (${news.error}).`, 'Telegraph NEWS_SEARCH_GENERAL');
     else if (bad && count !== 0) add('Disputes and adverse news', 'check', `News coverage mentions problems that may involve this supplier${brief ? `: "${String(brief).slice(0, 300)}"` : ''}. Read the sources: a name match can be a different company.`, `Telegraph NEWS_SEARCH_GENERAL (${news.miner || 'miner not named'})`);
-    else add('Disputes and adverse news', 'ok', 'No news coverage of fraud, disputes, lawsuits or recalls found. One news source; absence is not proof.', `Telegraph NEWS_SEARCH_GENERAL (${news.miner || 'miner not named'})`);
+    else add('Disputes and adverse news', 'ok', 'No news coverage of fraud, disputes, lawsuits or recalls naming this supplier. One news source; absence is not proof.', `Telegraph NEWS_SEARCH_GENERAL (${news.miner || 'miner not named'})`);
   }
 
   // 7. Recommendation

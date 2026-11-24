@@ -217,3 +217,23 @@ test('order and claims: capacity cannot meet the deadline, unproven certificate,
   assert.equal(r.verdict, 'VERIFY FIRST');
   assert.equal(typeof r.score, 'number');
 });
+
+test('wrong company from the registry is not used for years; generic-word news is not flagged', async () => {
+  globalThis.fetch = async (u, opts = {}) => {
+    u = String(u);
+    if (u.includes('api.gleif.org')) return { ok: true, status: 200, json: async () => ({ data: [] }) };
+    const b = JSON.parse(opts.body);
+    const R = {
+      CORPORATE_REGISTRY_LOOKUP_GENERAL: u.endsWith('/731005') ? { company: null } : { legal_name: 'SHENZHEN LDROBOT CO.,LTD', registration_id: '91440300MA5ETL7D53', active: false, incorporated: '2017-10-31' },
+      SANCTIONS_SCREENING_MATCH_GENERAL: { matched: false },
+      WEB_SEARCH_GENERAL: { answer: 'CE marked VFDs' },
+      NEWS_SEARCH_GENERAL: { brief: 'Recent coverage of "Yueqing Haiyin Electric Co., Ltd." fraud OR dispute OR lawsuit OR recall OR scam includes: "Hawaiian Electric warns customers that online and phone scams increase"' },
+    }[b.intent || 'CORPORATE_REGISTRY_LOOKUP_GENERAL'];
+    return { ok: true, status: 200, text: async () => JSON.stringify({ result: R, cost_usd: 0.01 }) };
+  };
+  const r = await investigate({ supplier: 'Yueqing Haiyin Electric Co., Ltd.', country: 'China', claimed_years: 4, claimed_certifications: 'CE' }, 'k');
+  const f = a => r.findings.find(x => x.area === a);
+  assert.equal(f('Claim: years in business').status, 'not_found');
+  assert.match(f('Registered identity').text, /different company/);
+  assert.equal(f('Disputes and adverse news').status, 'ok');
+});

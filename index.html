@@ -229,7 +229,9 @@ $('supplier').addEventListener('input', () => {
   tmr = setTimeout(async () => {
     try {
       const r = await fetch(`https://api.gleif.org/api/v1/lei-records?filter[fulltext]=${encodeURIComponent(q)}&page[size]=6`, { headers: { accept: 'application/vnd.api+json' } });
-      const j = await r.json(); const d = (j.data || []).map(x => x.attributes.entity);
+      const j = await r.json();
+      const qw = q.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(' ').filter(w => w.length > 2 && !['ltd', 'co', 'inc', 'limited', 'company', 'corp'].includes(w));
+      const d = (j.data || []).map(x => x.attributes.entity).filter(e => { const n = e.legalName.name.toLowerCase(); return qw.length && qw.every(w => n.includes(w)); });
       if (!d.length) { $('sugg').style.display = 'none'; return; }
       $('sugg').innerHTML = d.map((e, i) => `<div class="sg" data-i="${i}"><b>${esc(e.legalName.name)}</b><div class="hint">${esc(e.legalAddress.city || '')}, ${esc(CC[e.legalAddress.country] || e.legalAddress.country)}${e.registeredAs ? ' · ' + esc(e.registeredAs) : ''}</div></div>`).join('') + '<div class="hint" style="padding:6px 10px">From the GLEIF register. Not listed? Just keep typing.</div>';
       $('sugg').style.display = 'block';
