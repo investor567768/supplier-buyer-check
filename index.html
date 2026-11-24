@@ -93,6 +93,12 @@ footer a{margin-right:16px}
 
   <section id="out" hidden></section>
 
+  <section id="cmp" hidden>
+    <h2>Compare suppliers for the same order</h2>
+    <div class="card" style="overflow-x:auto"><table id="cmpt"></table>
+    <p class="hint">Each column is a separate check. Add another supplier with the form above, then press "Add to comparison" on its result. <a href="#" id="clear">Clear comparison</a></p></div>
+  </section>
+
   <section>
     <h2>Saved investigations</h2>
     <div id="runs" class="card">Loading...</div>
@@ -104,6 +110,7 @@ footer a{margin-right:16px}
       <li><b>Who the company really is.</b> A national register record bought from a Telegraph provider, plus the free GLEIF register. Name, number and country are compared with the listing.</li>
       <li><b>Sanctions.</b> A paid sanctions screen. If the provider gives no answer, the check says so instead of calling the supplier clean.</li>
       <li><b>The website.</b> Whether the company has its own site beyond the marketplace storefront, and whether that site is flagged as malicious.</li>
+      <li><b>Side by side.</b> Check several suppliers for the same order and compare them in one table.</li>
       <li><b>The invoice.</b> Whether the account you are asked to pay belongs to the same company. A different account holder is the most common marketplace payment fraud.</li>
     </ol>
     <p class="hint">It does not check ownership, reviews or product quality. Network: Telegraph testnet.</p>
@@ -137,9 +144,26 @@ function render(r) {
     const rec = c.payments.map(p => p.receipt_hash).filter(Boolean).join(' ');
     h += `<tr><td>${esc(c.intent)}${c.error ? `<div class="err">${esc(c.error)}</div>` : ''}</td><td>${esc(c.miner || '-')}</td><td>${c.cost_usd != null ? '$' + c.cost_usd : '-'}</td><td class="mono">${esc(rec || c.signal_hash || '-')}</td></tr>`;
   }
-  h += `</table><p class="hint">Total paid: $${r.total_cost_usd} on ${esc(r.network)}. Checked ${esc(r.checked_at)}.</p></div>`;
+  h += `</table><p class="hint">Total paid: $${r.total_cost_usd} on ${esc(r.network)}. Checked ${esc(r.checked_at)}.</p><button class="run" id="addcmp" type="button">Add to comparison</button></div>`;
   $('out').innerHTML = h; $('out').hidden = false; $('out').scrollIntoView({ behavior: 'smooth' });
+  $('addcmp').onclick = () => { if (!compared.some(c => c.checked_at === r.checked_at)) compared.push(r); drawCmp(); $('cmp').scrollIntoView({ behavior: 'smooth' }); };
 }
+
+const compared = [];
+const AREAS = ['Registered identity', 'Legal Entity Identifier', 'Registration number', 'Country', 'Sanctions', 'Company website', 'Website safety', 'Website vs company name', 'Payment beneficiary', 'Bank country'];
+function drawCmp() {
+  if (!compared.length) { $('cmp').hidden = true; return; }
+  const vc = v => v.startsWith('STOP') ? 'stop' : v.startsWith('VERIFY') ? 'check' : 'ok';
+  let h = '<tr><th></th>' + compared.map(r => `<th>${esc(r.input.supplier)}<div class="hint">${esc(r.input.city ? r.input.city + ', ' : '')}${esc(r.input.country)}</div></th>`).join('') + '</tr>';
+  h += '<tr><td><b>Recommendation</b></td>' + compared.map(r => `<td><span class="pill s-${vc(r.verdict)}">${esc(r.verdict)}</span></td>`).join('') + '</tr>';
+  for (const a of AREAS) {
+    if (!compared.some(r => r.findings.some(f => f.area === a))) continue;
+    h += `<tr><td>${esc(a)}</td>` + compared.map(r => { const f = r.findings.find(x => x.area === a); return f ? `<td><span class="pill s-${f.status}">${LABEL[f.status] || f.status}</span><div class="hint">${esc(f.text)}</div></td>` : '<td class="hint">-</td>'; }).join('') + '</tr>';
+  }
+  h += '<tr><td>Paid</td>' + compared.map(r => `<td>$${r.total_cost_usd}</td>`).join('') + '</tr>';
+  $('cmpt').innerHTML = h; $('cmp').hidden = false;
+}
+$('clear').onclick = e => { e.preventDefault(); compared.length = 0; drawCmp(); };
 
 $('form').onsubmit = async e => {
   e.preventDefault();

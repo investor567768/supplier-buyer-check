@@ -116,3 +116,35 @@ test('LEI only abroad is not used as the supplier identity', async () => {
   assert.ok(r.findings.some(f => f.area === 'Legal Entity Identifier' && f.status === 'not_found'));
   assert.notEqual(r.verdict, 'PROCEED WITH STANDARD CARE');
 });
+
+test('named specialists are asked directly by miner id; CLEAR/REVIEW/BLOCK verdicts are understood', async () => {
+  const urls = [];
+  globalThis.fetch = async (u, opts = {}) => {
+    u = String(u);
+    if (u.includes('api.gleif.org')) return { ok: true, status: 200, json: async () => ({ data: [] }) };
+    urls.push(u);
+    if (u.endsWith('/731005')) return { ok: true, status: 200, text: async () => JSON.stringify({ miner_id: 731005, result: { legal_name: base.supplier, lei: '5299XYZ', status: 'ACTIVE' }, cost_usd: 0.01 }) };
+    if (u.endsWith('/731002')) return { ok: true, status: 200, text: async () => JSON.stringify({ miner_id: 731002, result: { verdict: 'REVIEW' }, cost_usd: 0.01 }) };
+    return { ok: true, status: 200, text: async () => JSON.stringify({ result: { verdict: 'clean' }, cost_usd: 0.01 }) };
+  };
+  const r = await investigate(base, 'k');
+  assert.ok(urls.some(u => u.endsWith('/engine/ask/731005')));
+  assert.ok(urls.some(u => u.endsWith('/engine/ask/731002')));
+  assert.ok(r.findings.some(f => f.area === 'Registered identity' && f.status === 'ok'));
+  assert.ok(r.findings.some(f => f.area === 'Sanctions' && f.status === 'check'));
+  assert.equal(r.verdict, 'VERIFY FIRST');
+});
+
+test('specialist unreachable: falls back to the router', async () => {
+  const urls = [];
+  globalThis.fetch = async (u, opts = {}) => {
+    u = String(u);
+    if (u.includes('api.gleif.org')) return { ok: true, status: 200, json: async () => ({ data: [] }) };
+    urls.push(u);
+    if (/\/7310\d\d$/.test(u)) return { ok: false, status: 503, text: async () => '{"error":"miner offline"}' };
+    return { ok: true, status: 200, text: async () => JSON.stringify({ result: { matched: false }, cost_usd: 0.01 }) };
+  };
+  const r = await investigate(base, 'k');
+  assert.ok(urls.some(u => u.endsWith('/engine/ask')));
+  assert.equal(r.telegraph_calls[1].form, 'intent (router)');
+});

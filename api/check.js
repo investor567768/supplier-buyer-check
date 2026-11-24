@@ -12,6 +12,9 @@
 
 const BASE = process.env.TELEGRAPH_BASE || 'https://backend.telegraphprotocol.com';
 const BUDGET = Number(process.env.MAX_BUDGET_UUSDC || 100000);
+// Named specialists on the Telegraph network (direct ask by miner id). Override in Vercel if they change.
+const IDENTITY_MINER = process.env.IDENTITY_MINER || '731005';   // GLEIF-based legal entity identity
+const SANCTIONS_MINER = process.env.SANCTIONS_MINER || '731002'; // CLEAR / REVIEW / BLOCK across OFAC, UN, EU, UK
 
 class InputError extends Error { constructor(msg) { super(msg); this.status = 400; } }
 
@@ -40,10 +43,10 @@ const MARKETPLACE = /(^|\.)(alibaba|aliexpress|1688|made-in-china|globalsources|
 // ---------- sources ----------
 // One paid ask. Tries the typed form (intent + params) first; if the node rejects the body (400),
 // retries once in the plain-language form (query), which every ask endpoint accepts.
-async function postAsk(body, key) {
+async function postAsk(body, key, minerId) {
   let status = 0, json = null, err = null;
   try {
-    const r = await fetch(`${BASE}/engine/ask`, {
+    const r = await fetch(`${BASE}/engine/ask${minerId ? '/' + minerId : ''}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
       body: JSON.stringify(body),
@@ -62,13 +65,20 @@ function errText(status, json) {
   return [typeof e === 'string' ? e : JSON.stringify(e), extra && (typeof extra === 'string' ? extra : JSON.stringify(extra))].filter(Boolean).join(': ').slice(0, 300) || `HTTP ${status}`;
 }
 
-async function telegraph(intent, params, query, key) {
+async function telegraph(intent, params, query, key, minerId) {
   const started = Date.now();
-  let form = 'intent';
-  let { status, json, err } = await postAsk({ intent, params, max_budget_usdc: BUDGET }, key);
+  let form = minerId ? `miner ${minerId}` : 'intent';
+  // Named specialist first (direct ask), then the router if the specialist cannot be reached.
+  let { status, json, err } = minerId
+    ? await postAsk({ intent, params, query }, key, minerId)
+    : await postAsk({ intent, params, max_budget_usdc: BUDGET }, key);
+  if (minerId && (err || status >= 400)) {
+    form = 'intent (router)';
+    ({ status, json, err } = await postAsk({ intent, params, max_budget_usdc: BUDGET }, key));
+  }
   if (!err && status === 400) {
     const first = errText(status, json);
-    form = 'query';
+    form = 'query (router)';
     ({ status, json, err } = await postAsk({ query, max_budget_usdc: BUDGET }, key));
     if (!err && status >= 400) err = `typed ask refused (${first}); plain ask refused (${errText(status, json)})`;
   }
@@ -113,7 +123,8 @@ async function gleif(name, code) {
 // Read a value from a Telegraph result whether it came back shaped to the Intent or raw.
 function pick(result, ...keys) {
   if (!result || typeof result !== 'object') return undefined;
-  for (const k of keys) if (result[k] !== undefined && result[k] !== null && result[k] !== '') return result[k];
+  const layers = [result, result.data, result.answer, result.entity, result.result].filter(x => x && typeof x === 'object');
+  for (const L of layers) for (const k of keys) if (L[k] !== undefined && L[k] !== null && L[k] !== '') return L[k];
   return undefined;
 }
 
@@ -136,8 +147,8 @@ async function investigate(input, key) {
 
   // Paid and free calls in parallel.
   const jobs = [
-    telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { company: s.supplier, jurisdiction: code || s.country }, `Official company register record for "${s.supplier}" in ${s.country}: legal name, registration number, status, registered address.`, key),
-    telegraph('SANCTIONS_SCREENING_MATCH_GENERAL', { name: s.supplier }, `Is the company "${s.supplier}" (${s.country}) on the OFAC SDN, EU, UK or UN sanctions lists?`, key),
+    telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { company: s.supplier, jurisdiction: code || s.country }, `Is "${s.supplier}" (${s.country}) a real, active company? Give its registered legal name, LEI, jurisdiction, status and headquarters.`, key, IDENTITY_MINER),
+    telegraph('SANCTIONS_SCREENING_MATCH_GENERAL', { name: s.supplier }, `Is the company "${s.supplier}" (${s.country}) clear to transact with? Screen it against the OFAC, UN, EU and UK sanctions lists.`, key, SANCTIONS_MINER),
     domain && !MARKETPLACE.test(domain) ? telegraph('URL_SAFE_GENERAL', { url: `https://${domain}` }, `Is https://${domain} listed as malicious or phishing on threat feeds?`, key) : null,
     gleif(s.supplier, code),
   ];
@@ -159,8 +170,8 @@ async function investigate(input, key) {
   const webText = web ? textAnswer(web, 'Website safety') : false;
 
   // 1. Registered identity
-  const regName = pick(reg.result, 'legal_name', 'name', 'company');
-  const regId = pick(reg.result, 'registration_id', 'company_number', 'registration_number');
+  const regName = pick(reg.result, 'legal_name', 'legalName', 'registered_name', 'name', 'company');
+  const regId = pick(reg.result, 'registration_id', 'company_number', 'registration_number', 'lei', 'LEI');
   const regActive = pick(reg.result, 'active', 'status');
   const regJur = pick(reg.result, 'jurisdiction', 'country');
   if (regText) { /* shown above */ }
@@ -188,10 +199,13 @@ async function investigate(input, key) {
   }
 
   // 2. Sanctions
-  const matched = pick(sanc.result, 'matched');
+  let matched = pick(sanc.result, 'matched', 'listed', 'match');
+  const sv = String(pick(sanc.result, 'verdict', 'decision', 'status') || '').toUpperCase();
+  if (matched === undefined && sv) matched = sv.includes('BLOCK') ? true : sv.includes('CLEAR') ? false : sv.includes('REVIEW') ? 'review' : undefined;
   const lists = pick(sanc.result, 'lists');
   if (sancText) { /* shown above */ }
   else if (sanc.error || matched === undefined) add('Sanctions', 'unverified', `The sanctions provider gave no usable answer${sanc.error ? ` (${sanc.error})` : ''}. Screening not done, so this is not a clean result.`, 'Telegraph SANCTIONS_SCREENING_MATCH_GENERAL');
+  else if (matched === 'review') add('Sanctions', 'check', `The screen returned REVIEW: a partial name match that needs a person to compare the entry with this supplier.`, `Telegraph sanctions specialist (${sanc.miner || 'miner not named'})`);
   else if (matched === true || matched === 'true') add('Sanctions', 'stop', `Possible sanctions match${lists ? ` on ${[].concat(lists).join(', ')}` : ''}. Check the exact entry before any further contact; a name match can be a different party.`, `Telegraph SANCTIONS_SCREENING_MATCH_GENERAL (${sanc.miner || 'miner not named'})`);
   else add('Sanctions', 'ok', `No match reported${lists ? ` on ${[].concat(lists).join(', ')}` : ''}. One provider only.`, `Telegraph SANCTIONS_SCREENING_MATCH_GENERAL (${sanc.miner || 'miner not named'})`);
 
@@ -226,7 +240,7 @@ async function investigate(input, key) {
   const identityConfirmed = findings.some(f => (f.area === 'Registered identity' || f.area === 'Legal Entity Identifier') && f.status === 'ok');
   let verdict, why;
   if (has('stop')) { verdict = 'STOP'; why = 'At least one check found a serious problem. Resolve it before paying anything.'; }
-  else if (has('mismatch') || !identityConfirmed || has('unverified') || sancText) { verdict = 'VERIFY FIRST'; why = identityConfirmed ? 'Some details disagree or could not be checked.' : 'The company behind the listing could not be confirmed from an independent register. Ask for the business licence and check it before paying, and use the marketplace\'s payment protection.'; }
+  else if (has('mismatch') || !identityConfirmed || has('unverified') || sancText || findings.some(f => f.area === 'Sanctions' && f.status === 'check')) { verdict = 'VERIFY FIRST'; why = identityConfirmed ? 'Some details disagree or could not be checked.' : 'The company behind the listing could not be confirmed from an independent register. Ask for the business licence and check it before paying, and use the marketplace\'s payment protection.'; }
   else { verdict = 'PROCEED WITH STANDARD CARE'; why = 'Identity confirmed from an independent register, no sanctions match, no red flags in the documents checked. This is not a guarantee of product quality.'; }
 
   const calls = [reg, sanc, web].filter(Boolean);
