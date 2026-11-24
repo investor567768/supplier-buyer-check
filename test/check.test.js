@@ -168,3 +168,18 @@ test('wrapped direct answers: cost and miner are read from inside; enrichment pr
   assert.ok(r.findings.some(f => f.area === 'Sanctions' && f.status === 'ok'));
   assert.equal(r.total_cost_usd, 0.02);
 });
+
+test('LEI: "Siemens AG" is not matched to "Siemens Healthineers AG"', async () => {
+  globalThis.fetch = async (u, opts = {}) => {
+    u = String(u);
+    if (u.includes('api.gleif.org')) return { ok: true, status: 200, json: async () => ({ data: [
+      { id: 'H', attributes: { entity: { legalName: { name: 'Siemens Healthineers AG' }, status: 'ACTIVE', legalAddress: { country: 'DE', city: 'München' } } } },
+      { id: 'S', attributes: { entity: { legalName: { name: 'Siemens Aktiengesellschaft' }, status: 'ACTIVE', legalAddress: { country: 'DE', city: 'Berlin' } } } },
+      { id: 'A', attributes: { entity: { legalName: { name: 'SIEMENS AG' }, status: 'ACTIVE', legalAddress: { country: 'DE', city: 'München' }, registeredAs: 'HRB 6684' } } },
+    ] }) };
+    return { ok: false, status: 400, text: async () => 'Bad Request' };
+  };
+  const r = await investigate({ supplier: 'Siemens AG', country: 'Germany' }, 'k');
+  const f = r.findings.find(x => x.area === 'Legal Entity Identifier');
+  assert.ok(/LEI A/.test(f.text), f.text);
+});

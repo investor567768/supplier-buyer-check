@@ -31,6 +31,14 @@ function nameMatch(listed, found) {
   if (!a.length || !b.size) return 0;
   return a.filter(w => b.has(w)).length / a.length;
 }
+// Two-way: every distinctive word must appear on both sides ("Siemens AG" is not "Siemens Healthineers AG").
+function nameMatchStrict(a, b) {
+  const x = core(a), y = core(b);
+  if (!x.length || !y.length) return 0;
+  const X = new Set(x), Y = new Set(y);
+  const hit = x.filter(w => Y.has(w)).length;
+  return hit / Math.max(X.size, Y.size);
+}
 const COUNTRY = { china: 'CN', cn: 'CN', prc: 'CN', 'hong kong': 'HK', hk: 'HK', taiwan: 'TW', tw: 'TW', 'united states': 'US', usa: 'US', us: 'US', 'united kingdom': 'GB', uk: 'GB', gb: 'GB', germany: 'DE', de: 'DE', india: 'IN', in: 'IN', vietnam: 'VN', 'viet nam': 'VN', vn: 'VN', turkey: 'TR', turkiye: 'TR', tr: 'TR', japan: 'JP', jp: 'JP', korea: 'KR', 'south korea': 'KR', kr: 'KR', singapore: 'SG', sg: 'SG', malaysia: 'MY', my: 'MY', thailand: 'TH', th: 'TH', italy: 'IT', it: 'IT', france: 'FR', fr: 'FR', spain: 'ES', es: 'ES', netherlands: 'NL', nl: 'NL', canada: 'CA', ca: 'CA', mexico: 'MX', mx: 'MX', brazil: 'BR', br: 'BR', nigeria: 'NG', ng: 'NG', 'united arab emirates': 'AE', uae: 'AE', ae: 'AE', pakistan: 'PK', pk: 'PK', indonesia: 'ID', id: 'ID', russia: 'RU', ru: 'RU', iran: 'IR', ir: 'IR' };
 function cc(s) { const k = String(s || '').trim().toLowerCase(); return COUNTRY[k] || (k.length === 2 ? k.toUpperCase() : null); }
 function domainOf(u) {
@@ -124,11 +132,14 @@ async function gleif(name, code) {
     `${base}&filter[fulltext]=${encodeURIComponent(name)}`,
   ].filter(Boolean);
   const log = [];
+  let seen = null;
   for (const url of tries) {
     const r = await gleifQuery(url);
     log.push(`${r.error || r.records.length + ' records'}`);
-    if (r.records.length) return { url, log, ...r };
+    if (r.records.some(x => nameMatchStrict(name, x.legal_name) >= 0.67)) return { url, log, ...r };
+    if (r.records.length && !seen) seen = { url, ...r };
   }
+  if (seen) return { log, ...seen };
   return { url: tries[tries.length - 1], log, records: [], error: log.every(x => /HTTP|reach/.test(x)) ? log[0] : null };
 }
 
@@ -205,7 +216,7 @@ async function investigate(input, key) {
       add('Registration number', 'mismatch', `The listing or document gives ${s.claimed_registration}, the registry record says ${regId}.`, 'Telegraph registry vs listing');
   }
   // Free second source
-  const best = lei.records.map(r => ({ ...r, m: nameMatch(s.supplier, r.legal_name) })).sort((a, b) => b.m - a.m)[0];
+  const best = lei.records.map(r => ({ ...r, m: nameMatchStrict(s.supplier, r.legal_name) })).sort((a, b) => b.m - a.m)[0];
   if (lei.error) add('Legal Entity Identifier', 'unverified', `GLEIF could not be read (${lei.error}).`, 'GLEIF');
   else if (!best || best.m < 0.67) add('Legal Entity Identifier', 'not_found', `No LEI record closely matching "${s.supplier}". Many small manufacturers have no LEI, so this alone is not a warning.`, 'GLEIF public API');
   else if (code && best.country && best.country !== code) {
@@ -259,7 +270,7 @@ async function investigate(input, key) {
   const identityConfirmed = findings.some(f => (f.area === 'Registered identity' || f.area === 'Legal Entity Identifier') && f.status === 'ok');
   let verdict, why;
   if (has('stop')) { verdict = 'STOP'; why = 'At least one check found a serious problem. Resolve it before paying anything.'; }
-  else if (has('mismatch') || !identityConfirmed || has('unverified') || sancText || findings.some(f => f.area === 'Sanctions' && f.status === 'check')) { verdict = 'VERIFY FIRST'; why = identityConfirmed ? 'Some details disagree or could not be checked.' : 'The company behind the listing could not be confirmed from an independent register. Ask for the business licence and check it before paying, and use the marketplace\'s payment protection.'; }
+  else if (has('mismatch') || !identityConfirmed || findings.some(f => f.status === 'unverified' && f.area !== 'Website safety') || sancText || findings.some(f => f.area === 'Sanctions' && f.status === 'check')) { verdict = 'VERIFY FIRST'; why = identityConfirmed ? 'Some details disagree or could not be checked.' : 'The company behind the listing could not be confirmed from an independent register. Ask for the business licence and check it before paying, and use the marketplace\'s payment protection.'; }
   else { verdict = 'PROCEED WITH STANDARD CARE'; why = 'Identity confirmed from an independent register, no sanctions match, no red flags in the documents checked. This is not a guarantee of product quality.'; }
 
   const calls = [reg, sanc, web].filter(Boolean);
