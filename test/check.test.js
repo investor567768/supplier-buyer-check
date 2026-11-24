@@ -12,9 +12,9 @@ function mock({ registry, sanctions, url, gleif = [], fail = {} }) {
     }
     const b = JSON.parse(opts.body);
     calls.push(b.intent);
-    if (fail[b.intent]) return { ok: false, status: 503, json: async () => ({ error: 'no_compatible_miner' }) };
+    if (fail[b.intent]) return { ok: false, status: 503, text: async () => JSON.stringify({ error: 'no_compatible_miner' }) };
     const result = { CORPORATE_REGISTRY_LOOKUP_GENERAL: registry, SANCTIONS_SCREENING_MATCH_GENERAL: sanctions, URL_SAFE_GENERAL: url }[b.intent];
-    return { ok: true, status: 200, json: async () => ({ miner_name: 'm-' + b.intent.slice(0, 4), result, result_shape: 'intent', cost_usd: 0.02, signal_hash: '0xabc', fulfillment: { status: 'complete', payments: [{ miner: 'm', intent: b.intent, amount_uusdc: 20000, receipt_hash: '0xr' }] } }) };
+    return { ok: true, status: 200, text: async () => JSON.stringify({ miner_name: 'm-' + b.intent.slice(0, 4), result, result_shape: 'intent', cost_usd: 0.02, signal_hash: '0xabc', fulfillment: { status: 'complete', payments: [{ miner: 'm', intent: b.intent, amount_uusdc: 20000, receipt_hash: '0xr' }] } }) };
   };
   return calls;
 }
@@ -81,9 +81,38 @@ test('registration number on the document disagrees with the register', async ()
 test('LEI found in another country is flagged', async () => {
   mock({ registry: null, sanctions: { matched: false }, url: { verdict: 'clean' }, fail: { CORPORATE_REGISTRY_LOOKUP_GENERAL: true }, gleif: [{ lei: 'X', name: base.supplier, country: 'HK', city: 'Hong Kong' }] });
   const r = await investigate(base, 'k');
-  assert.ok(r.findings.some(f => f.area === 'Country' && f.status === 'mismatch'));
+  assert.ok(r.findings.some(f => f.area === 'Country' && f.status === 'check'));
 });
 
 test('missing supplier name is an input error', async () => {
   await assert.rejects(investigate({ country: 'China' }, 'k'), e => e.status === 400);
+});
+
+test('typed ask refused with 400: retries once in plain language and keeps the text answer, never scored clean', async () => {
+  const bodies = [];
+  globalThis.fetch = async (u, opts = {}) => {
+    u = String(u);
+    if (u.includes('api.gleif.org')) return { ok: true, status: 200, json: async () => ({ data: [] }) };
+    const b = JSON.parse(opts.body); bodies.push(b);
+    if (b.intent) return { ok: false, status: 400, text: async () => JSON.stringify({ error: 'invalid request body' }) };
+    return { ok: true, status: 200, text: async () => JSON.stringify({ miner_name: 'm', result: 'No match found on OFAC SDN.', cost_usd: 0.01 }) };
+  };
+  const r = await investigate(base, 'k');
+  assert.ok(bodies.some(b => b.query));
+  assert.ok(r.findings.some(f => f.area === 'Sanctions' && f.status === 'check'));
+  assert.equal(r.verdict, 'VERIFY FIRST');
+});
+
+test('LEI only abroad is not used as the supplier identity', async () => {
+  globalThis.fetch = async (u, opts = {}) => {
+    u = String(u);
+    if (u.includes('api.gleif.org')) {
+      const home = u.includes('legalAddress.country');
+      return { ok: true, status: 200, json: async () => ({ data: home ? [] : [{ id: 'L', attributes: { entity: { legalName: { name: 'Delta Electronics (Switzerland) AG' }, status: 'ACTIVE', legalAddress: { country: 'CH', city: 'Bern' } } } }] }) };
+    }
+    return { ok: false, status: 503, text: async () => '{"error":"no_compatible_miner"}' };
+  };
+  const r = await investigate({ supplier: 'Delta Electronics, Inc.', country: 'Taiwan' }, 'k');
+  assert.ok(r.findings.some(f => f.area === 'Legal Entity Identifier' && f.status === 'not_found'));
+  assert.notEqual(r.verdict, 'PROCEED WITH STANDARD CARE');
 });

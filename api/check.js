@@ -38,45 +38,76 @@ function domainOf(u) {
 const MARKETPLACE = /(^|\.)(alibaba|aliexpress|1688|made-in-china|globalsources|indiamart|dhgate|tradeindia|ec21|tradekey)\.(com|cn|net|org)$/;
 
 // ---------- sources ----------
-async function telegraph(intent, params, key) {
-  const started = Date.now();
-  let status = 0, body = null, err = null;
+// One paid ask. Tries the typed form (intent + params) first; if the node rejects the body (400),
+// retries once in the plain-language form (query), which every ask endpoint accepts.
+async function postAsk(body, key) {
+  let status = 0, json = null, err = null;
   try {
     const r = await fetch(`${BASE}/engine/ask`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-      body: JSON.stringify({ intent, params, max_budget_usdc: BUDGET }),
-      signal: AbortSignal.timeout(55000),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(50000),
     });
     status = r.status;
-    body = await r.json().catch(() => null);
-  } catch (e) { err = e.name === 'TimeoutError' ? 'no answer within 55 s' : 'could not reach Telegraph'; }
-  const f = body && body.fulfillment || {};
+    const text = await r.text();
+    try { json = JSON.parse(text); } catch { json = { error: text.slice(0, 300) }; }
+  } catch (e) { err = e.name === 'TimeoutError' ? 'no answer within 50 s' : 'could not reach Telegraph'; }
+  return { status, json, err };
+}
+function errText(status, json) {
+  if (!json) return `HTTP ${status}`;
+  const e = json.error || json.message || json.detail;
+  const extra = json.details || json.reason || json.hint;
+  return [typeof e === 'string' ? e : JSON.stringify(e), extra && (typeof extra === 'string' ? extra : JSON.stringify(extra))].filter(Boolean).join(': ').slice(0, 300) || `HTTP ${status}`;
+}
+
+async function telegraph(intent, params, query, key) {
+  const started = Date.now();
+  let form = 'intent';
+  let { status, json, err } = await postAsk({ intent, params, max_budget_usdc: BUDGET }, key);
+  if (!err && status === 400) {
+    const first = errText(status, json);
+    form = 'query';
+    ({ status, json, err } = await postAsk({ query, max_budget_usdc: BUDGET }, key));
+    if (!err && status >= 400) err = `typed ask refused (${first}); plain ask refused (${errText(status, json)})`;
+  }
+  const body = json || {};
+  const f = body.fulfillment || {};
   return {
-    intent, params, http_status: status, error: err || (status && status >= 400 ? (body && (body.error || body.message)) || `HTTP ${status}` : null),
-    miner: body && (body.miner_name || body.miner_id) || null,
-    result: body && body.result !== undefined ? body.result : null,
-    result_shape: body && body.result_shape || null,
+    intent, params, form, http_status: status,
+    error: err || (status >= 400 ? errText(status, body) : null),
+    miner: body.miner_name || body.miner_id || null,
+    result: body.result !== undefined ? body.result : (body.answer !== undefined ? body.answer : null),
+    result_shape: body.result_shape || null,
     fulfillment_status: f.status || null,
-    cost_usd: body && body.cost_usd != null ? Number(body.cost_usd) : null,
-    signal_hash: body && body.signal_hash || null,
+    cost_usd: body.cost_usd != null ? Number(body.cost_usd) : (body.costUsd != null ? Number(body.costUsd) : null),
+    signal_hash: body.signal_hash || null,
     payments: Array.isArray(f.payments) ? f.payments.map(p => ({ miner: p.miner, intent: p.intent, amount_uusdc: p.amount_uusdc, receipt_hash: p.receipt_hash })) : [],
     ms: Date.now() - started,
   };
 }
 
-async function gleif(name) {
-  const url = `https://api.gleif.org/api/v1/lei-records?filter[fulltext]=${encodeURIComponent(name)}&page[size]=5`;
+async function gleifQuery(url) {
   try {
     const r = await fetch(url, { headers: { accept: 'application/vnd.api+json' }, signal: AbortSignal.timeout(20000) });
-    if (!r.ok) return { url, error: `HTTP ${r.status}`, records: [] };
+    if (!r.ok) return { error: `HTTP ${r.status}`, records: [] };
     const j = await r.json();
-    const records = (j.data || []).map(d => {
+    return { records: (j.data || []).map(d => {
       const e = d.attributes.entity;
       return { lei: d.id, legal_name: e.legalName && e.legalName.name, status: e.status, country: e.legalAddress && e.legalAddress.country, city: e.legalAddress && e.legalAddress.city, registered_as: e.registeredAs || null };
-    });
-    return { url, records };
-  } catch { return { url, error: 'could not reach GLEIF', records: [] }; }
+    }) };
+  } catch { return { error: 'could not reach GLEIF', records: [] }; }
+}
+// Search in the listing's country first, so an affiliate abroad is not mistaken for the supplier.
+async function gleif(name, code) {
+  const q = `https://api.gleif.org/api/v1/lei-records?filter[fulltext]=${encodeURIComponent(name)}&page[size]=5`;
+  if (code) {
+    const url = `${q}&filter[entity.legalAddress.country]=${code}`;
+    const home = await gleifQuery(url);
+    if (home.records.length || home.error) return { url, scope: 'home', ...home };
+  }
+  return { url: q, scope: 'anywhere', ...(await gleifQuery(q)) };
 }
 
 // Read a value from a Telegraph result whether it came back shaped to the Intent or raw.
@@ -105,22 +136,35 @@ async function investigate(input, key) {
 
   // Paid and free calls in parallel.
   const jobs = [
-    telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { company: s.supplier, jurisdiction: code || s.country }, key),
-    telegraph('SANCTIONS_SCREENING_MATCH_GENERAL', { name: s.supplier }, key),
-    domain && !MARKETPLACE.test(domain) ? telegraph('URL_SAFE_GENERAL', { url: `https://${domain}` }, key) : null,
-    gleif(s.supplier),
+    telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { company: s.supplier, jurisdiction: code || s.country }, `Official company register record for "${s.supplier}" in ${s.country}: legal name, registration number, status, registered address.`, key),
+    telegraph('SANCTIONS_SCREENING_MATCH_GENERAL', { name: s.supplier }, `Is the company "${s.supplier}" (${s.country}) on the OFAC SDN, EU, UK or UN sanctions lists?`, key),
+    domain && !MARKETPLACE.test(domain) ? telegraph('URL_SAFE_GENERAL', { url: `https://${domain}` }, `Is https://${domain} listed as malicious or phishing on threat feeds?`, key) : null,
+    gleif(s.supplier, code),
   ];
   const [reg, sanc, web, lei] = await Promise.all(jobs);
 
   const findings = [];
   const add = (area, status, text, source) => findings.push({ area, status, text, source });
 
+  // Plain-language answers come back as text. Show them as they are, never scored as clean.
+  const textAnswer = (call, area) => {
+    if (call && !call.error && typeof call.result === 'string' && call.result.trim()) {
+      add(area, 'check', `Provider's answer (plain text, read it yourself): "${call.result.trim().slice(0, 400)}"`, `Telegraph ${call.intent} (${call.miner || 'miner not named'}, plain-language ask)`);
+      return true;
+    }
+    return false;
+  };
+  const regText = textAnswer(reg, 'Registered identity');
+  const sancText = textAnswer(sanc, 'Sanctions');
+  const webText = web ? textAnswer(web, 'Website safety') : false;
+
   // 1. Registered identity
   const regName = pick(reg.result, 'legal_name', 'name', 'company');
   const regId = pick(reg.result, 'registration_id', 'company_number', 'registration_number');
   const regActive = pick(reg.result, 'active', 'status');
   const regJur = pick(reg.result, 'jurisdiction', 'country');
-  if (reg.error || !regName) {
+  if (regText) { /* shown above */ }
+  else if (reg.error || !regName) {
     add('Registered identity', 'not_found', `The Telegraph registry provider did not return a record for "${s.supplier}"${reg.error ? ` (${reg.error})` : ''}. Not found is not the same as clean.`, 'Telegraph CORPORATE_REGISTRY_LOOKUP_GENERAL');
   } else {
     const m = nameMatch(s.supplier, regName);
@@ -134,9 +178,11 @@ async function investigate(input, key) {
   const best = lei.records.map(r => ({ ...r, m: nameMatch(s.supplier, r.legal_name) })).sort((a, b) => b.m - a.m)[0];
   if (lei.error) add('Legal Entity Identifier', 'unverified', `GLEIF could not be read (${lei.error}).`, 'GLEIF');
   else if (!best || best.m < 0.67) add('Legal Entity Identifier', 'not_found', `No LEI record closely matching "${s.supplier}". Many small manufacturers have no LEI, so this alone is not a warning.`, 'GLEIF public API');
-  else {
+  else if (code && best.country && best.country !== code) {
+    add('Legal Entity Identifier', 'not_found', `No LEI record for "${s.supplier}" in ${s.country}.`, 'GLEIF public API');
+    add('Country', 'check', `No LEI record in ${s.country}; the closest is ${best.legal_name} in ${best.country}, which may be an affiliate rather than this supplier.`, 'GLEIF vs listing');
+  } else {
     add('Legal Entity Identifier', best.status === 'ACTIVE' ? 'ok' : 'mismatch', `${best.legal_name}, LEI ${best.lei}, ${best.status}, ${best.city || ''} ${best.country || ''}${best.registered_as ? `, registered as ${best.registered_as}` : ''}.`, 'GLEIF public API');
-    if (code && best.country && best.country !== code) add('Country', 'mismatch', `The listing says ${s.country}; the LEI record is in ${best.country}.`, 'GLEIF vs listing');
     if (s.claimed_registration && best.registered_as && best.registered_as.replace(/\W/g, '').toUpperCase() !== s.claimed_registration.replace(/\W/g, '').toUpperCase())
       add('Registration number', 'mismatch', `The listing or document gives ${s.claimed_registration}; GLEIF has ${best.registered_as} for ${best.legal_name}.`, 'GLEIF vs listing');
   }
@@ -144,7 +190,8 @@ async function investigate(input, key) {
   // 2. Sanctions
   const matched = pick(sanc.result, 'matched');
   const lists = pick(sanc.result, 'lists');
-  if (sanc.error || matched === undefined) add('Sanctions', 'unverified', `The sanctions provider gave no usable answer${sanc.error ? ` (${sanc.error})` : ''}. Screening not done, so this is not a clean result.`, 'Telegraph SANCTIONS_SCREENING_MATCH_GENERAL');
+  if (sancText) { /* shown above */ }
+  else if (sanc.error || matched === undefined) add('Sanctions', 'unverified', `The sanctions provider gave no usable answer${sanc.error ? ` (${sanc.error})` : ''}. Screening not done, so this is not a clean result.`, 'Telegraph SANCTIONS_SCREENING_MATCH_GENERAL');
   else if (matched === true || matched === 'true') add('Sanctions', 'stop', `Possible sanctions match${lists ? ` on ${[].concat(lists).join(', ')}` : ''}. Check the exact entry before any further contact; a name match can be a different party.`, `Telegraph SANCTIONS_SCREENING_MATCH_GENERAL (${sanc.miner || 'miner not named'})`);
   else add('Sanctions', 'ok', `No match reported${lists ? ` on ${[].concat(lists).join(', ')}` : ''}. One provider only.`, `Telegraph SANCTIONS_SCREENING_MATCH_GENERAL (${sanc.miner || 'miner not named'})`);
 
@@ -154,7 +201,8 @@ async function investigate(input, key) {
   else if (MARKETPLACE.test(domain)) add('Company website', 'not_found', `${domain} is the marketplace itself, not the company's own site.`, 'Listing');
   else {
     const verdict = web && pick(web.result, 'verdict', 'safe');
-    if (!web || web.error || verdict === undefined) add('Website safety', 'unverified', `No usable website-safety answer for ${domain}${web && web.error ? ` (${web.error})` : ''}.`, 'Telegraph URL_SAFE_GENERAL');
+    if (webText) { /* shown above */ }
+    else if (!web || web.error || verdict === undefined) add('Website safety', 'unverified', `No usable website-safety answer for ${domain}${web && web.error ? ` (${web.error})` : ''}.`, 'Telegraph URL_SAFE_GENERAL');
     else {
       const bad = verdict === false || /malicious|phish|unsafe|suspicious/i.test(String(verdict));
       add('Website safety', bad ? 'stop' : 'ok', `${domain}: ${String(verdict)}.`, `Telegraph URL_SAFE_GENERAL (${web.miner || 'miner not named'})`);
@@ -178,7 +226,7 @@ async function investigate(input, key) {
   const identityConfirmed = findings.some(f => (f.area === 'Registered identity' || f.area === 'Legal Entity Identifier') && f.status === 'ok');
   let verdict, why;
   if (has('stop')) { verdict = 'STOP'; why = 'At least one check found a serious problem. Resolve it before paying anything.'; }
-  else if (has('mismatch') || !identityConfirmed || has('unverified')) { verdict = 'VERIFY FIRST'; why = identityConfirmed ? 'Some details disagree or could not be checked.' : 'The company behind the listing could not be confirmed from an independent register. Ask for the business licence and check it before paying, and use the marketplace\'s payment protection.'; }
+  else if (has('mismatch') || !identityConfirmed || has('unverified') || sancText) { verdict = 'VERIFY FIRST'; why = identityConfirmed ? 'Some details disagree or could not be checked.' : 'The company behind the listing could not be confirmed from an independent register. Ask for the business licence and check it before paying, and use the marketplace\'s payment protection.'; }
   else { verdict = 'PROCEED WITH STANDARD CARE'; why = 'Identity confirmed from an independent register, no sanctions match, no red flags in the documents checked. This is not a guarantee of product quality.'; }
 
   const calls = [reg, sanc, web].filter(Boolean);
