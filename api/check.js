@@ -232,8 +232,8 @@ async function investigate(input, key) {
     add('Registered identity', 'not_found', `The Telegraph registry provider did not return a record for "${s.supplier}"${reg.error ? ` (${reg.error})` : ''}. Not found is not the same as clean.`, 'Telegraph CORPORATE_REGISTRY_LOOKUP_GENERAL');
   } else {
     const m = nameMatch(s.supplier, regName);
-    add('Registered identity', m >= 0.67 ? 'ok' : 'mismatch',
-      `${m >= 0.67 ? 'Registry record' : 'The registry provider returned a different company'}: ${regName}${regId ? `, registration ${regId}` : ''}${regJur ? `, ${regJur}` : ''}${regActive !== undefined ? `, active: ${regActive}` : ''}. Name agreement with the listing: ${Math.round(m * 100)}%.`,
+    add('Registered identity', m >= 0.67 ? 'ok' : 'unverified',
+      `${m >= 0.67 ? 'Registry record' : 'Provider error, not a supplier problem: the registry provider answered with a different company'}: ${regName}${regId ? `, registration ${regId}` : ''}${regJur ? `, ${regJur}` : ''}${regActive !== undefined ? `, active: ${regActive}` : ''}. Name agreement with the listing: ${Math.round(m * 100)}%.`,
       `Telegraph CORPORATE_REGISTRY_LOOKUP_GENERAL (${reg.miner || 'miner not named'})`);
     if (m >= 0.67 && s.claimed_registration && regId && String(regId).replace(/\W/g, '').toUpperCase() !== s.claimed_registration.replace(/\W/g, '').toUpperCase())
       add('Registration number', 'mismatch', `The listing or document gives ${s.claimed_registration}, the registry record says ${regId}.`, 'Telegraph registry vs listing');
