@@ -38,7 +38,7 @@ input:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:1px}
 .sub{font-weight:600;margin:16px 0 8px}
 button.run{width:100%;margin-top:14px;background:var(--acc);color:#fff;border:0;border-radius:10px;padding:14px;font:inherit;font-weight:600;cursor:pointer}
 button.run[disabled]{opacity:.6;cursor:wait}
-.hint{font-size:14px;color:var(--mute);margin-top:8px}
+.hint{font-size:14px;line-height:1.5;color:var(--mute);margin-top:8px}
 .verdict{border-radius:12px;padding:16px 18px;margin-bottom:14px;border:1px solid}
 .verdict b{display:block;font-size:22px}
 .v-STOP{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent)}
@@ -83,29 +83,29 @@ footer a{margin-right:16px}
       <div class="sub">Your order</div>
       <div class="grid">
         <div class="full"><label for="product">Product and specification</label><input id="product" placeholder="e.g. 7.5 kW 3-phase frequency inverter, 380 V"></div>
-        <div><label for="quantity">Quantity</label><input id="quantity" inputmode="numeric" placeholder="10,000"></div>
-        <div><label for="deadline_days">Needed within (days)</label><input id="deadline_days" inputmode="numeric" placeholder="60"></div>
-        <div><label for="unit_price">Unit price in US dollars</label><input id="unit_price" inputmode="decimal" placeholder="180"></div>
-        <div><label for="deposit_pct">Deposit asked upfront (%)</label><input id="deposit_pct" inputmode="numeric" placeholder="30"></div>
+        <div><label for="quantity">Quantity</label><input id="quantity" inputmode="numeric" placeholder="e.g. 10,000"></div>
+        <div><label for="deadline_days">Needed within (days)</label><input id="deadline_days" inputmode="numeric" placeholder="e.g. 60"></div>
+        <div><label for="unit_price">Unit price in US dollars</label><input id="unit_price" inputmode="decimal" placeholder="e.g. 180"></div>
+        <div><label for="deposit_pct">Deposit asked upfront (%)</label><input id="deposit_pct" inputmode="numeric" placeholder="e.g. 30"></div>
       </div>
       <div class="sub">From the listing</div>
       <div class="grid">
         <div class="full" style="position:relative"><label for="supplier">Company name, exactly as listed</label><input id="supplier" required autocomplete="off" placeholder="Start typing, e.g. Zhejiang Lefoo"><div id="sugg" class="card" style="display:none;position:absolute;left:0;right:0;z-index:4;padding:6px;margin-top:4px"></div></div>
-        <div><label for="country">Country</label><input id="country" required placeholder="China"></div>
-        <div><label for="city">City</label><input id="city" placeholder="Shenzhen"></div>
+        <div><label for="country">Country</label><input id="country" required placeholder="e.g. China"></div>
+        <div><label for="city">City</label><input id="city" placeholder="e.g. Shenzhen"></div>
         <div class="full"><label for="website">Company website, if the listing gives one</label><input id="website" placeholder="www.example.com"></div>
         <div class="full"><label for="listing_url">Listing link</label><input id="listing_url" placeholder="https://www.alibaba.com/product-detail/..."></div>
         <div class="full"><label for="claimed_registration">Registration or licence number, if shown</label><input id="claimed_registration" placeholder="optional"></div>
       </div>
       <div class="sub">What the listing claims</div>
       <div class="grid">
-        <div class="full"><label for="claimed_certifications">Certifications, separated by commas</label><input id="claimed_certifications" placeholder="CE, ISO 9001, RoHS"></div>
-        <div><label for="claimed_years">Years in business</label><input id="claimed_years" inputmode="numeric" placeholder="12"></div>
-        <div><label for="claimed_monthly_capacity">Production per month (units)</label><input id="claimed_monthly_capacity" inputmode="numeric" placeholder="5,000"></div>
-        <div class="full"><label for="claimed_export_markets">Export markets, separated by commas</label><input id="claimed_export_markets" placeholder="Germany, Brazil, Nigeria"></div>
-        <div><label for="staff">Staff</label><input id="staff" inputmode="numeric" placeholder="70"></div>
-        <div><label for="factory_m2">Factory size (m²)</label><input id="factory_m2" inputmode="numeric" placeholder="2,100"></div>
-        <div class="full"><label for="business_type">Business type</label><input id="business_type" placeholder="Manufacturer, Trading Company"></div>
+        <div class="full"><label for="claimed_certifications">Certifications, separated by commas</label><input id="claimed_certifications" placeholder="e.g. CE, ISO 9001, RoHS"></div>
+        <div><label for="claimed_years">Years in business</label><input id="claimed_years" inputmode="numeric" placeholder="e.g. 12"></div>
+        <div><label for="claimed_monthly_capacity">Production per month (units)</label><input id="claimed_monthly_capacity" inputmode="numeric" placeholder="e.g. 5,000"></div>
+        <div class="full"><label for="claimed_export_markets">Export markets, separated by commas</label><input id="claimed_export_markets" placeholder="e.g. Germany, Brazil, Nigeria"></div>
+        <div><label for="staff">Staff</label><input id="staff" inputmode="numeric" placeholder="e.g. 70"></div>
+        <div><label for="factory_m2">Factory size (m²)</label><input id="factory_m2" inputmode="numeric" placeholder="e.g. 2,100"></div>
+        <div class="full"><label for="business_type">Business type</label><input id="business_type" placeholder="e.g. Manufacturer, Trading Company"></div>
       </div>
       <div class="sub">From the invoice or proforma (optional)</div>
       <div class="grid">
@@ -150,7 +150,7 @@ footer a{margin-right:16px}
 
 <footer><div class="wrap">
   <a href="https://github.com/investor567768/supplier-buyer-check">Code ↗</a>
-  <a href="https://telegraph-supplier-detective.vercel.app/">Supplier.Detective ↗</a>
+  <a href="https://telegraph-supplier-detective.vercel.app/">Spun off from Supplier.Detective ↗</a>
   <div style="margin-top:10px">Built for Telegraph Hackathon Season II, a prize competition.</div>
 </div></footer>
 
@@ -184,7 +184,7 @@ const FIELDS = ['product', 'quantity', 'deadline_days', 'unit_price', 'deposit_p
 const EXAMPLES = [
   { label: 'Siemens AG (Germany)', supplier: 'Siemens AG', country: 'Germany', city: 'Munich', website: 'www.siemens.com' },
   { label: 'Delta Electronics (Taiwan)', supplier: 'Delta Electronics, Inc.', country: 'Taiwan', city: 'Taipei', website: 'www.deltaww.com' },
-  { label: 'Invoice pays someone else', supplier: 'Siemens AG', country: 'Germany', city: 'Munich', website: 'www.siemens.com', invoice_beneficiary: 'Hong Kong Bright Star Trading Limited', invoice_bank_country: 'Hong Kong' },
+  { label: 'Invoice pays someone else', supplier: 'Example Pump Controls Ltd', country: 'China', invoice_beneficiary: 'Sunrise Trading Ltd', invoice_bank_country: 'Hong Kong' },
   { label: 'Sanctioned company', supplier: 'Rosoboronexport', country: 'Russia', city: 'Moscow' },
 ];
 const ORDER = ['product', 'quantity', 'deadline_days', 'unit_price', 'deposit_pct'];
