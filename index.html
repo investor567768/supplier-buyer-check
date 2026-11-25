@@ -57,10 +57,13 @@ td,th{text-align:left;padding:8px 6px;border-top:1px solid var(--line);vertical-
 .err{color:var(--bad)}
 ol.steps{padding-left:20px}
 ol.steps li{margin:6px 0}
-footer{border-top:1px solid var(--line);margin-top:50px;padding:24px 0 40px;color:var(--mute);font-size:14px}
-footer .links{display:flex;flex-wrap:wrap;gap:8px 20px}
-footer .links a{white-space:nowrap}
-footer p{margin:14px 0 0;line-height:1.5}
+footer{border-top:1px solid var(--line);margin-top:56px;padding:44px 0 56px;color:var(--mute);font-size:16px}
+footer .links{display:flex;flex-wrap:wrap;gap:12px}
+footer .links a{display:inline-flex;align-items:center;gap:10px;white-space:nowrap;padding:12px 20px;border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink);font-weight:600;text-decoration:none}
+footer .links a span{color:var(--acc)}
+footer .links a:hover{border-color:var(--acc)}
+footer .links a:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+footer p{margin:28px 0 0;line-height:1.6}
 </style>
 </head>
 <body>
@@ -152,10 +155,10 @@ footer p{margin:14px 0 0;line-height:1.5}
 
 <footer><div class="wrap">
   <div class="links">
-    <a href="https://github.com/investor567768/supplier-buyer-check">Code ↗</a>
-    <a href="https://telegraph-supplier-detective.vercel.app/">Spun off from Supplier.Detective ↗</a>
+    <a href="https://github.com/investor567768/supplier-buyer-check">Code <span>↗</span></a>
+    <a href="https://telegraph-supplier-detective.vercel.app/">Spun off from Supplier.Detective <span>↗</span></a>
   </div>
-  <p>Built for the Telegraph Hackathon Season II, a competition with prizes.</p>
+  <p>Built by Chrysolite for the Telegraph Hackathon Season II, a competition with prizes. Paid answers come from Telegraph providers through Anjoman. The company register lookup (GLEIF) is free and public.</p>
 </div></footer>
 
 <script>

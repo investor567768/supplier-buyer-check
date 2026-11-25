@@ -82,8 +82,9 @@ A registry provider once returned a record for a different company. The app comp
 4. Tests, no network and nothing bought: `npm test` (Node 18+).
 
 ## Updates
-Dated public updates on this app, newest last:
-- 25 Nov 2026: demo video and results posted in the Telegraph Discord showcase, and on X: https://x.com/kingChrys494/status/2125641607001301415
+Each update below is public and dated, so you can check when it was posted.
+
+- **25 Nov 2026:** the demo video and first results, posted on X (https://x.com/kingChrys494/status/2125641607001301415) and in the Telegraph Discord showcase.
 
 ## Limits
 - Testnet only. Providers may not answer; the report says so and does not treat silence as clean.
