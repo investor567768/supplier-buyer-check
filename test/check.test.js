@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { investigate, nameMatch, cc, domainOf, MARKETPLACE } from '../api/check.js';
+import { investigate, nameMatch, cc, domainOf, MARKETPLACE, allowRun } from '../api/check.js';
 
 // Fake Telegraph and GLEIF. Nothing is bought in tests.
 function mock({ registry, sanctions, url, gleif = [], fail = {} }) {
@@ -255,4 +255,12 @@ test('seller size: 70 staff cannot make 10,000 units in 60 days; 390 staff can; 
   assert.ok(small.findings.some(f => f.area === 'Manufacturer or trader'));
   assert.equal(big.findings.find(f => f.area === 'Seller size vs order').status, 'ok');
   assert.ok(big.score > small.score);
+});
+
+test('free-use brake: 5 runs per visitor per day, then refused, then reset next day', () => {
+  const ip = 'test-ip-1';
+  for (let i = 0; i < 5; i++) assert.equal(allowRun(ip, '2026-12-01').ok, true);
+  assert.equal(allowRun(ip, '2026-12-01').ok, false);
+  assert.equal(allowRun('test-ip-2', '2026-12-01').ok, true);
+  assert.equal(allowRun(ip, '2026-12-02').ok, true);
 });

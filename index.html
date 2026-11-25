@@ -112,10 +112,10 @@ footer a{margin-right:16px}
         <div><label for="invoice_beneficiary">Account holder to pay</label><input id="invoice_beneficiary" placeholder="optional"></div>
         <div><label for="invoice_bank_country">Bank country</label><input id="invoice_bank_country" placeholder="optional"></div>
       </div>
-      <div class="sub">Passcode</div>
-      <input id="passcode" type="password" placeholder="Live checks spend testnet funds">
+      <div class="sub" style="display:none">Passcode</div>
+      <input id="passcode" type="password" style="display:none" placeholder="Not needed">
       <button class="run" id="run" type="submit">Check this supplier</button>
-      <div class="hint">A check makes up to six paid Telegraph calls, about $0.01 each. It takes up to a minute.</div>
+      <div class="hint">Open to everyone on testnet funds: 5 free checks per visitor per day. A check makes up to six paid Telegraph calls, about $0.01 each of test money. It takes up to a minute.</div>
     </form>
   </section>
 

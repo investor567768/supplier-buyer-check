@@ -5,7 +5,7 @@
 //
 // Environment (set in Vercel, never in the repo):
 //   TELEGRAPH_API_KEY  the Anjoman API key (starts with anjoman_)
-//   RUN_PASSCODE       a passcode needed for paid live runs, so strangers cannot spend the balance
+//   RUN_PASSCODE       optional. If set, paid live runs need this passcode. If unset, anyone can run (testnet funds)
 // Optional:
 //   TELEGRAPH_BASE     defaults to https://backend.telegraphprotocol.com
 //   MAX_BUDGET_UUSDC   per paid call, in micro-USDC, defaults to 100000 (0.10 USD)
@@ -384,6 +384,20 @@ async function investigate(input, key) {
   };
 }
 
+// Free-use brake. Counters live in memory, so they reset when the server restarts or scales out:
+// a safety net for testnet funds, not exact accounting. Set RUN_PASSCODE to bypass it for your own runs.
+const PER_IP_PER_DAY = Number(process.env.RUNS_PER_IP_PER_DAY || 5);
+const ALL_PER_DAY = Number(process.env.RUNS_ALL_PER_DAY || 150);
+const usage = { day: '', all: 0, ips: new Map() };
+function allowRun(ip, today = new Date().toISOString().slice(0, 10)) {
+  if (usage.day !== today) { usage.day = today; usage.all = 0; usage.ips = new Map(); }
+  const n = usage.ips.get(ip) || 0;
+  if (n >= PER_IP_PER_DAY) return { ok: false, why: `You have used today's ${PER_IP_PER_DAY} free checks. They reset at 00:00 UTC.` };
+  if (usage.all >= ALL_PER_DAY) return { ok: false, why: 'Today\'s free checks for everyone are used up. They reset at 00:00 UTC.' };
+  usage.ips.set(ip, n + 1); usage.all += 1;
+  return { ok: true };
+}
+
 export default async function handler(req, res) {
   res.setHeader('content-type', 'application/json; charset=utf-8');
   res.setHeader('cache-control', 'no-store');
@@ -391,7 +405,12 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') { res.statusCode = 405; return res.end(JSON.stringify({ error: 'Use POST with a JSON body.' })); }
     const body = typeof req.body === 'object' && req.body ? req.body : JSON.parse(await new Promise(r => { let d = ''; req.on('data', c => d += c); req.on('end', () => r(d || '{}')); }));
     if (!process.env.TELEGRAPH_API_KEY) { res.statusCode = 503; return res.end(JSON.stringify({ error: 'This deployment has no Telegraph API key set, so it cannot buy answers.' })); }
-    if (!process.env.RUN_PASSCODE || body.passcode !== process.env.RUN_PASSCODE) { res.statusCode = 401; return res.end(JSON.stringify({ error: 'Live checks spend real testnet funds, so they need the passcode. The saved runs on this page are free to read.' })); }
+    if (process.env.RUN_PASSCODE && body.passcode !== process.env.RUN_PASSCODE) { res.statusCode = 401; return res.end(JSON.stringify({ error: 'Live checks spend real testnet funds, so they need the passcode. The saved runs on this page are free to read.' })); }
+    if (!(process.env.RUN_PASSCODE && body.passcode === process.env.RUN_PASSCODE)) {
+      const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+      const a = allowRun(ip);
+      if (!a.ok) { res.statusCode = 429; return res.end(JSON.stringify({ error: a.why })); }
+    }
     const out = await investigate(body, process.env.TELEGRAPH_API_KEY);
     res.statusCode = 200; res.end(JSON.stringify(out));
   } catch (e) {
@@ -400,4 +419,4 @@ export default async function handler(req, res) {
   }
 }
 
-export { investigate, nameMatch, core, cc, domainOf, MARKETPLACE };
+export { investigate, nameMatch, core, cc, domainOf, MARKETPLACE, allowRun };
