@@ -9,6 +9,8 @@ You paste the supplier's marketplace page and enter your order. The app buys reg
 Supplier Buyer Check is a spin-off of [Supplier.Detective](https://telegraph-supplier-detective.vercel.app/), my earlier Apps & Agents entry: a Mind that checks invoices against purchase orders. Supplier Buyer Check reuses its approach to buying and cross-checking Telegraph answers (major reused component, disclosed per the rules) and moves it to an earlier moment: before a buyer pays a supplier they found on a marketplace.
 
 
+**Demo video (2 min, on X):** https://x.com/kingChrys494/status/2125641607001301415
+
 **Judges, start here.** No wallet, login or passcode. Anyone gets 5 free checks a day (150 a day across all visitors), paid from a testnet balance.
 
 | Run it | Check it | Inspect the payment | Break it | Reproduce it |
@@ -81,7 +83,7 @@ A registry provider once returned a record for a different company. The app comp
 
 ## Updates
 Dated public updates on this app, newest last:
-- 25 Nov 2026: demo video and results posted in the Telegraph Discord showcase, and on X: https://x.com/kingChrys494/status/2125638633063412151
+- 25 Nov 2026: demo video and results posted in the Telegraph Discord showcase, and on X: https://x.com/kingChrys494/status/2125641607001301415
 
 ## Limits
 - Testnet only. Providers may not answer; the report says so and does not treat silence as clean.

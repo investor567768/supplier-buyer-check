@@ -58,7 +58,9 @@ td,th{text-align:left;padding:8px 6px;border-top:1px solid var(--line);vertical-
 ol.steps{padding-left:20px}
 ol.steps li{margin:6px 0}
 footer{border-top:1px solid var(--line);margin-top:50px;padding:24px 0 40px;color:var(--mute);font-size:14px}
-footer a{margin-right:16px}
+footer .links{display:flex;flex-wrap:wrap;gap:8px 20px}
+footer .links a{white-space:nowrap}
+footer p{margin:14px 0 0;line-height:1.5}
 </style>
 </head>
 <body>
@@ -149,9 +151,11 @@ footer a{margin-right:16px}
 </main>
 
 <footer><div class="wrap">
-  <a href="https://github.com/investor567768/supplier-buyer-check">Code ↗</a>
-  <a href="https://telegraph-supplier-detective.vercel.app/">Spun off from Supplier.Detective ↗</a>
-  <div style="margin-top:10px">Built for Telegraph Hackathon Season II, a prize competition.</div>
+  <div class="links">
+    <a href="https://github.com/investor567768/supplier-buyer-check">Code ↗</a>
+    <a href="https://telegraph-supplier-detective.vercel.app/">Spun off from Supplier.Detective ↗</a>
+  </div>
+  <p>Built for the Telegraph Hackathon Season II, a competition with prizes.</p>
 </div></footer>
 
 <script>
