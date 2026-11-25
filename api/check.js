@@ -79,7 +79,7 @@ function errText(status, json) {
   return [typeof e === 'string' ? e : JSON.stringify(e), extra && (typeof extra === 'string' ? extra : JSON.stringify(extra))].filter(Boolean).join(': ').slice(0, 300) || `HTTP ${status}`;
 }
 
-async function telegraph(intent, params, query, key, minerId) {
+async function telegraph(intent, params, query, key, minerId, altParams = []) {
   const started = Date.now();
   let form = minerId ? `miner ${minerId}` : 'intent';
   // Named specialist first (direct ask): typed form, then plain question. Then the router.
@@ -92,8 +92,12 @@ async function telegraph(intent, params, query, key, minerId) {
     return !err && status < 400;
   };
   let ok = false;
-  if (minerId) ok = await attempt(`miner ${minerId}`, { intent, params, query }, minerId)
-    || await attempt(`miner ${minerId} (plain)`, { query }, minerId);
+  if (minerId) {
+    ok = await attempt(`miner ${minerId}`, { intent, params, query }, minerId);
+    // Refused asks are not charged, so try the other parameter shapes before falling back to plain text.
+    for (const alt of altParams) { if (ok) break; ok = await attempt(`miner ${minerId} (${Object.keys(alt).join('+')})`, { intent, params: alt, query }, minerId); }
+    if (!ok) ok = await attempt(`miner ${minerId} (plain)`, { query }, minerId);
+  }
   // A timeout means the provider is busy; asking again in another form only doubles the wait.
   const timedOut = () => /no answer within/.test(String(err));
   if (!ok) ok = await attempt('router', { intent, params })
@@ -194,7 +198,7 @@ async function investigate(input, key) {
   // Paid and free calls in parallel.
   const claimsAsked = s.claimed_certifications.length || s.claimed_export_markets.length || s.claimed_years || s.claimed_monthly_capacity;
   const jobs = [
-    telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { name: s.supplier }, `Is "${s.supplier}" (${s.country}) a real, active company? Give its registered legal name, LEI, jurisdiction, status and headquarters.`, key, IDENTITY_MINER),
+    telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { company: s.supplier, jurisdiction: code || s.country, name: s.supplier }, `Is "${s.supplier}" (${s.country}) a real, active company? Give its registered legal name, LEI, jurisdiction, status and headquarters.`, key, IDENTITY_MINER, [{ company: s.supplier, jurisdiction: code || s.country }, { name: s.supplier }]),
     telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { company: s.supplier, jurisdiction: code || s.country }, `Official company register record for "${s.supplier}" in ${s.country}: legal name, registration number, status, incorporation date.`, key),
     telegraph('SANCTIONS_SCREENING_MATCH_GENERAL', { name: s.supplier }, `Is the company "${s.supplier}" (${s.country}) clear to transact with? Screen it against the OFAC, UN, EU and UK sanctions lists.`, key, SANCTIONS_MINER),
     domain && !MARKETPLACE.test(domain) ? telegraph('URL_SAFE_GENERAL', { url: `https://${domain}` }, `Is https://${domain} listed as malicious or phishing on threat feeds?`, key) : null,

@@ -276,7 +276,7 @@ test('identity provider: new schema, not found is reported as not found, never c
   assert.equal(f.status, 'not_found');
   assert.match(f.text, /Not found is not the same as clean/);
   assert.notEqual(r.verdict, 'PROCEED WITH STANDARD CARE');
-  assert.deepEqual(Object.keys(globalThis.lastIdentityParams || {}), ['name']);
+  assert.deepEqual(Object.keys(globalThis.lastIdentityParams || {}).sort(), ['company', 'jurisdiction', 'name']);
 });
 
 test('identity provider returns an LEI: GLEIF is looked up by that LEI (Siemens AG vs Siemens Aktiengesellschaft)', async () => {
