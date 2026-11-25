@@ -124,7 +124,7 @@ async function gleifQuery(url) {
     const r = await fetch(url, { headers: { accept: 'application/vnd.api+json' }, signal: AbortSignal.timeout(20000) });
     if (!r.ok) return { error: `HTTP ${r.status}`, records: [] };
     const j = await r.json();
-    return { records: (j.data || []).map(d => {
+    return { records: (Array.isArray(j.data) ? j.data : j.data ? [j.data] : []).map(d => {
       const e = d.attributes.entity;
       return { lei: d.id, legal_name: e.legalName && e.legalName.name, status: e.status, country: e.legalAddress && e.legalAddress.country, city: e.legalAddress && e.legalAddress.city, registered_as: e.registeredAs || null };
     }) };
@@ -193,7 +193,7 @@ async function investigate(input, key) {
   // Paid and free calls in parallel.
   const claimsAsked = s.claimed_certifications.length || s.claimed_export_markets.length || s.claimed_years || s.claimed_monthly_capacity;
   const jobs = [
-    telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { company: s.supplier, jurisdiction: code || s.country }, `Is "${s.supplier}" (${s.country}) a real, active company? Give its registered legal name, LEI, jurisdiction, status and headquarters.`, key, IDENTITY_MINER),
+    telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { name: s.supplier }, `Is "${s.supplier}" (${s.country}) a real, active company? Give its registered legal name, LEI, jurisdiction, status and headquarters.`, key, IDENTITY_MINER),
     telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { company: s.supplier, jurisdiction: code || s.country }, `Official company register record for "${s.supplier}" in ${s.country}: legal name, registration number, status, incorporation date.`, key),
     telegraph('SANCTIONS_SCREENING_MATCH_GENERAL', { name: s.supplier }, `Is the company "${s.supplier}" (${s.country}) clear to transact with? Screen it against the OFAC, UN, EU and UK sanctions lists.`, key, SANCTIONS_MINER),
     domain && !MARKETPLACE.test(domain) ? telegraph('URL_SAFE_GENERAL', { url: `https://${domain}` }, `Is https://${domain} listed as malicious or phishing on threat feeds?`, key) : null,
@@ -232,6 +232,22 @@ async function investigate(input, key) {
     add('Company profile', 'check', `Business profile from the Telegraph identity provider: ${bits.join(', ') || 'no details'}. This is a profile, not a register record, so it does not by itself confirm the legal entity.`, `Telegraph identity provider (${idc.miner || 'miner not named'})`);
     if (s.city && prof.headquarters && !words(prof.headquarters).some(w => words(s.city).includes(w))) add('Headquarters vs listing', 'check', `The listing says ${s.city}; the provider gives headquarters ${prof.headquarters}. Large companies often have several sites, but ask which entity you are buying from.`, 'Telegraph profile vs listing');
   }
+  // Newer identity provider answer: found, legal_name, lei, jurisdiction, legal_form, confidence, source.
+  const ident = idc.result && typeof idc.result === 'object' && 'found' in idc.result ? idc.result : null;
+  let providerLei = null;
+  if (ident) {
+    const src = `Telegraph identity provider (${idc.miner || 'miner not named'})`;
+    const conf = ident.confidence != null ? ` Provider confidence ${ident.confidence}.` : '';
+    if (ident.found === false || !ident.legal_name) {
+      add('Identity provider', 'not_found', `The identity provider searched company registers and found no registered entity matching "${s.supplier}"${ident.source ? ` (${String(ident.source).slice(0, 160)})` : ''}.${conf} Not found is not the same as clean.`, src);
+    } else {
+      const m = nameMatchStrict(s.supplier, ident.legal_name);
+      if (m >= 0.67) {
+        if (/^[A-Z0-9]{20}$/i.test(String(ident.lei || ''))) providerLei = String(ident.lei).toUpperCase();
+        add('Identity provider', 'ok', `${ident.legal_name}${ident.lei ? `, LEI ${ident.lei}` : ''}${ident.jurisdiction ? `, ${ident.jurisdiction}` : ''}${ident.legal_form ? `, ${ident.legal_form}` : ''}. Name agreement with the listing: ${Math.round(m * 100)}%.${conf}`, src);
+      } else add('Identity provider', 'unverified', `Provider error, not a supplier problem: the identity provider answered with a different company: ${ident.legal_name}. Name agreement with the listing: ${Math.round(m * 100)}%.${conf}`, src);
+    }
+  }
   if (regText) { /* shown above */ }
   else if (reg.error || !regName) {
     add('Registered identity', 'not_found', `The Telegraph registry provider did not return a record for "${s.supplier}"${reg.error ? ` (${reg.error})` : ''}. Not found is not the same as clean.`, 'Telegraph CORPORATE_REGISTRY_LOOKUP_GENERAL');
@@ -244,14 +260,20 @@ async function investigate(input, key) {
       add('Registration number', 'mismatch', `The listing or document gives ${s.claimed_registration}, the registry record says ${regId}.`, 'Telegraph registry vs listing');
   }
   // Free second source
-  const best = lei.records.map(r => ({ ...r, m: nameMatchStrict(s.supplier, r.legal_name) })).sort((a, b) => b.m - a.m)[0];
-  if (lei.error) add('Legal Entity Identifier', 'unverified', `GLEIF could not be read (${lei.error}).`, 'GLEIF');
+  const nameBest = lei.records.map(r => ({ ...r, m: nameMatchStrict(s.supplier, r.legal_name) })).sort((a, b) => b.m - a.m)[0];
+  let byLei = null;
+  if (providerLei && !(nameBest && nameBest.m >= 0.67)) {
+    const r = await gleifQuery(`https://api.gleif.org/api/v1/lei-records/${providerLei}`);
+    if (r.records[0]) byLei = { ...r.records[0], m: nameMatchStrict(s.supplier, r.records[0].legal_name) };
+  }
+  const best = byLei && byLei.m >= 0.67 ? byLei : nameBest;
+  if (lei.error && !(best && best === byLei)) add('Legal Entity Identifier', 'unverified', `GLEIF could not be read (${lei.error}).`, 'GLEIF');
   else if (!best || best.m < 0.67) add('Legal Entity Identifier', 'not_found', `No LEI record closely matching "${s.supplier}". Many small manufacturers have no LEI, so this alone is not a warning.`, 'GLEIF public API');
   else if (code && best.country && best.country !== code) {
     add('Legal Entity Identifier', 'not_found', `No LEI record for "${s.supplier}" in ${s.country}.`, 'GLEIF public API');
     add('Country', 'check', `No LEI record in ${s.country}; the closest is ${best.legal_name} in ${best.country}, which may be an affiliate rather than this supplier.`, 'GLEIF vs listing');
   } else {
-    add('Legal Entity Identifier', best.status === 'ACTIVE' ? 'ok' : 'mismatch', `${best.legal_name}, LEI ${best.lei}, ${best.status}, ${best.city || ''} ${best.country || ''}${best.registered_as ? `, registered as ${best.registered_as}` : ''}.`, 'GLEIF public API');
+    add('Legal Entity Identifier', best.status === 'ACTIVE' ? 'ok' : 'mismatch', `${best.legal_name}, LEI ${best.lei}, ${best.status}, ${best.city || ''} ${best.country || ''}${best.registered_as ? `, registered as ${best.registered_as}` : ''}.`, best === byLei ? 'GLEIF public API (looked up by the LEI the identity provider returned)' : 'GLEIF public API');
     if (s.claimed_registration && best.registered_as && best.registered_as.replace(/\W/g, '').toUpperCase() !== s.claimed_registration.replace(/\W/g, '').toUpperCase())
       add('Registration number', 'mismatch', `The listing or document gives ${s.claimed_registration}; GLEIF has ${best.registered_as} for ${best.legal_name}.`, 'GLEIF vs listing');
   }

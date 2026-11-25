@@ -7,11 +7,15 @@ function mock({ registry, sanctions, url, gleif = [], fail = {} }) {
   const calls = [];
   globalThis.fetch = async (u, opts = {}) => {
     u = String(u);
+    if (u.includes('/lei-records/W38RGI023J3WT1HWRP32')) {
+      return { ok: true, status: 200, json: async () => ({ data: { id: 'W38RGI023J3WT1HWRP32', attributes: { entity: { legalName: { name: 'Siemens Aktiengesellschaft' }, status: 'ACTIVE', legalAddress: { country: 'DE', city: 'Munich' }, registeredAs: 'HRB 6684' } } } }) };
+    }
     if (u.includes('api.gleif.org')) {
       return { ok: true, status: 200, json: async () => ({ data: gleif.map(g => ({ id: g.lei, attributes: { entity: { legalName: { name: g.name }, status: g.status || 'ACTIVE', legalAddress: { country: g.country, city: g.city }, registeredAs: g.reg } } })) }) };
     }
     const b = JSON.parse(opts.body);
     calls.push(b.intent);
+    if (u.endsWith('/731005')) globalThis.lastIdentityParams = b.params;
     if (fail[b.intent]) return { ok: false, status: 503, text: async () => JSON.stringify({ error: 'no_compatible_miner' }) };
     const result = { CORPORATE_REGISTRY_LOOKUP_GENERAL: registry, SANCTIONS_SCREENING_MATCH_GENERAL: sanctions, URL_SAFE_GENERAL: url }[b.intent];
     return { ok: true, status: 200, text: async () => JSON.stringify({ miner_name: 'm-' + b.intent.slice(0, 4), result, result_shape: 'intent', cost_usd: 0.02, signal_hash: '0xabc', fulfillment: { status: 'complete', payments: [{ miner: 'm', intent: b.intent, amount_uusdc: 20000, receipt_hash: '0xr' }] } }) };
@@ -263,4 +267,25 @@ test('free-use brake: 5 runs per visitor per day, then refused, then reset next 
   assert.equal(allowRun(ip, '2026-12-01').ok, false);
   assert.equal(allowRun('test-ip-2', '2026-12-01').ok, true);
   assert.equal(allowRun(ip, '2026-12-02').ok, true);
+});
+
+test('identity provider: new schema, not found is reported as not found, never clean', async () => {
+  mock({ registry: { found: false, legal_name: null, lei: null, confidence: 0.4, source: 'no registered entity whose legal name matches the query' }, sanctions: { matched: false }, url: { verdict: 'clean' } });
+  const r = await investigate(base, 'k');
+  const f = r.findings.find(x => x.area === 'Identity provider');
+  assert.equal(f.status, 'not_found');
+  assert.match(f.text, /Not found is not the same as clean/);
+  assert.notEqual(r.verdict, 'PROCEED WITH STANDARD CARE');
+  assert.deepEqual(Object.keys(globalThis.lastIdentityParams || {}), ['name']);
+});
+
+test('identity provider returns an LEI: GLEIF is looked up by that LEI (Siemens AG vs Siemens Aktiengesellschaft)', async () => {
+  mock({ registry: { found: true, legal_name: 'Siemens Aktiengesellschaft', lei: 'W38RGI023J3WT1HWRP32', jurisdiction: 'DE', legal_form: 'AG', confidence: 0.95, source: 'GLEIF' }, sanctions: { matched: false }, url: { verdict: 'clean' } });
+  const r = await investigate({ supplier: 'Siemens AG', country: 'Germany', city: 'Munich', website: 'www.siemens.com' }, 'k');
+  const idf = r.findings.find(x => x.area === 'Identity provider');
+  assert.equal(idf.status, 'ok');
+  const lei = r.findings.find(x => x.area === 'Legal Entity Identifier');
+  assert.equal(lei.status, 'ok');
+  assert.match(lei.text, /W38RGI023J3WT1HWRP32/);
+  assert.match(lei.source, /by the LEI the identity provider returned/);
 });
