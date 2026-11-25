@@ -198,7 +198,7 @@ async function investigate(input, key) {
   // Paid and free calls in parallel.
   const claimsAsked = s.claimed_certifications.length || s.claimed_export_markets.length || s.claimed_years || s.claimed_monthly_capacity;
   const jobs = [
-    telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { company: s.supplier, jurisdiction: code || s.country, name: s.supplier }, `Is "${s.supplier}" (${s.country}) a real, active company? Give its registered legal name, LEI, jurisdiction, status and headquarters.`, key, IDENTITY_MINER, [{ company: s.supplier, jurisdiction: code || s.country }, { name: s.supplier }]),
+    telegraph('B2B_IDENTITY_ENRICHMENT', { name: s.supplier }, `Is "${s.supplier}" (${s.country}) a real, active company? Give its registered legal name, LEI, jurisdiction, status and headquarters.`, key, IDENTITY_MINER, [{ company: s.supplier, name: s.supplier }, { company: s.supplier, jurisdiction: code || s.country }]),
     telegraph('CORPORATE_REGISTRY_LOOKUP_GENERAL', { company: s.supplier, jurisdiction: code || s.country }, `Official company register record for "${s.supplier}" in ${s.country}: legal name, registration number, status, incorporation date.`, key),
     telegraph('SANCTIONS_SCREENING_MATCH_GENERAL', { name: s.supplier }, `Is the company "${s.supplier}" (${s.country}) clear to transact with? Screen it against the OFAC, UN, EU and UK sanctions lists.`, key, SANCTIONS_MINER),
     domain && !MARKETPLACE.test(domain) ? telegraph('URL_SAFE_GENERAL', { url: `https://${domain}` }, `Is https://${domain} listed as malicious or phishing on threat feeds?`, key) : null,
@@ -253,6 +253,7 @@ async function investigate(input, key) {
       } else add('Identity provider', 'unverified', `Provider error, not a supplier problem: the identity provider answered with a different company: ${ident.legal_name}. Name agreement with the listing: ${Math.round(m * 100)}%.${conf}`, src);
     }
   }
+  if (!providerLei && regSame && /^[A-Z0-9]{20}$/i.test(String(regId || ''))) providerLei = String(regId).toUpperCase();
   if (regText) { /* shown above */ }
   else if (reg.error || !regName) {
     add('Registered identity', 'not_found', `The Telegraph registry provider did not return a record for "${s.supplier}"${reg.error ? ` (${reg.error})` : ''}. Not found is not the same as clean.`, 'Telegraph CORPORATE_REGISTRY_LOOKUP_GENERAL');
@@ -304,7 +305,8 @@ async function investigate(input, key) {
     else if (!web || web.error || verdict === undefined) add('Website safety', 'unverified', `No usable website-safety answer for ${domain}${web && web.error ? ` (${web.error})` : ''}.`, 'Telegraph URL_SAFE_GENERAL');
     else {
       const bad = verdict === false || /malicious|phish|unsafe|suspicious/i.test(String(verdict));
-      add('Website safety', bad ? 'stop' : 'ok', `${domain}: ${String(verdict)}.`, `Telegraph URL_SAFE_GENERAL (${web.miner || 'miner not named'})`);
+      const good = verdict === true || /^(safe|clean|benign|ok|not (listed|flagged|malicious))/i.test(String(verdict));
+      add('Website safety', bad ? 'stop' : good ? 'ok' : 'unverified', `${domain}: ${String(verdict)}.${bad || good ? '' : ' The provider could not rate this site, so it is not treated as safe.'}`, `Telegraph URL_SAFE_GENERAL (${web.miner || 'miner not named'})`);
     }
     const dm = nameMatch(s.supplier, domain.split('.').slice(0, -1).join(' '));
     if (dm === 0) add('Website vs company name', 'check', `The domain ${domain} shares no distinctive word with "${s.supplier}". Common for brands, but confirm the site belongs to this company.`, 'Listing');
