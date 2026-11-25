@@ -79,6 +79,10 @@ A registry provider once returned a record for a different company. The app comp
 3. Deploy, open the site, copy a supplier's Alibaba page (Ctrl+A, Ctrl+C), paste it into "Fill it in for me", enter your order and press **Check this supplier**.
 4. Tests, no network and nothing bought: `npm test` (Node 18+).
 
+## Updates
+Dated public updates on this app, newest last:
+- 25 Nov 2026: demo video and results posted in the Telegraph Discord showcase, and on X: https://x.com/kingChrys494/status/2125638633063412151
+
 ## Limits
 - Testnet only. Providers may not answer; the report says so and does not treat silence as clean.
 - Registry coverage for small manufacturers, especially in mainland China, is limited. A missing record means "ask for the business licence and Unified Social Credit Code", not "fraud".
