@@ -173,7 +173,7 @@ function render(r) {
   h += `</div><h2 style="margin-top:24px">Telegraph requests and receipts</h2><div class="card"><table><tr><th>Intent</th><th>Miner</th><th>Cost</th><th>Receipt / signal</th></tr>`;
   for (const c of r.telegraph_calls) {
     const rec = c.payments.map(p => p.receipt_hash).filter(Boolean).join(' ');
-    h += `<tr><td>${esc(c.intent)}<div class="hint">via ${esc(c.form || '-')}</div>${c.error ? `<div class="err">${esc(c.error)}</div>` : ''}${c.raw_preview ? `<details><summary class="hint">Raw answer</summary><div class="mono">${esc(c.raw_preview)}</div></details>` : ''}</td><td>${esc(c.miner || '-')}</td><td>${c.cost_usd != null ? '$' + c.cost_usd : '-'}</td><td class="mono">${esc(rec || c.signal_hash || '-')}</td></tr>`;
+    h += `<tr><td>${esc(c.intent)}<div class="hint">via ${esc(c.form || '-')}</div>${c.first_try_refused ? `<div class="hint">First attempt refused: ${esc(c.first_try_refused)}</div>` : ''}${c.error ? `<div class="err">${esc(c.error)}</div>` : ''}${c.raw_preview ? `<details><summary class="hint">Raw answer</summary><div class="mono">${esc(c.raw_preview)}</div></details>` : ''}</td><td>${esc(c.miner || '-')}</td><td>${c.cost_usd != null ? '$' + c.cost_usd : '-'}</td><td class="mono">${esc(rec || c.signal_hash || '-')}</td></tr>`;
   }
   h += `</table><p class="hint">Total paid: $${r.total_cost_usd} on ${esc(r.network)}. Checked ${esc(r.checked_at)}.</p><button class="run" id="addcmp" type="button">Add to comparison</button></div>`;
   $('out').innerHTML = h; $('out').hidden = false; $('out').scrollIntoView({ behavior: 'smooth' });

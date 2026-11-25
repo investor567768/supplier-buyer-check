@@ -105,6 +105,7 @@ async function telegraph(intent, params, query, key, minerId) {
   const f = body.fulfillment || {};
   return {
     intent, params, form, http_status: status,
+    first_try_refused: ok && tried.length ? tried.join('; ').slice(0, 400) : null,
     error: err || (status >= 400 ? errText(status, body) : null),
     miner: body.miner_name || body.miner_id || body.miner || (minerId && !String(form).startsWith('router') ? `#${minerId}` : null),
     result: body.result !== undefined ? body.result : (body.answer !== undefined ? body.answer : null),
