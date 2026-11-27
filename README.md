@@ -42,7 +42,7 @@ Each check makes up to six paid Telegraph calls of about $0.01 each in testnet c
 | GLEIF register lookups (free, public) | The seller-size benchmark (25 units per worker per month) is a rough rule of thumb |
 | Sanctions lists named with their publication dates | The comparison with a plain AI model is one model on three suppliers: an illustration, not a rate |
 
-**Adoption so far:** no independent use is confirmed yet.
+**Independent testing (26 Nov 2026):** antikunpiece, the builder of Praman Desk (a separate Telegraph entry), ran live tests against this app's API (`/api/check`) and saved the results in his own repo. Siemens Aktiengesellschaft (Munich) came back HTTP 200, matched to the active registry record HRB 6684 and LEI W38RGI023J3WT1HWRP32. He also found a gap: for "Viktor But" the sanctions provider this app asked returned no match, while his own screener flags a near-miss with OFAC entry BOUT, Viktor Anatolijevitch (UID 8279), a spelling the single provider missed. *Disclosure:* this was a mutual test. I also tested Praman Desk and reported two bugs, which he fixed; I reran the Viktor But fix on 27 Nov and it returns `NEAR_MISS_REVIEW`. No other paying or independent use is confirmed yet.
 
 ## Results
 
@@ -84,6 +84,7 @@ A registry provider once returned a record for a different company. The app comp
 ## Updates
 Each update below is public and dated, so you can check when it was posted.
 
+- **27 Nov 2026:** independent test by antikunpiece (Praman Desk) recorded above, with the Viktor But sanctions gap it exposed. Next: a second sanctions opinion inside the check so one provider's "no match" can no longer clear a supplier.
 - **25 Nov 2026:** the demo video and first results, posted on X (https://x.com/kingChrys494/status/2125641607001301415) and in the Telegraph Discord showcase.
 
 ## Limits
