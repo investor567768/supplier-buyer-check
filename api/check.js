@@ -16,6 +16,12 @@ const BUDGET = Number(process.env.MAX_BUDGET_UUSDC || 100000);
 const IDENTITY_MINER = process.env.IDENTITY_MINER || '731005';   // GLEIF-based legal entity identity
 const SANCTIONS_MINER = process.env.SANCTIONS_MINER || '731002'; // CLEAR / REVIEW / BLOCK across OFAC, UN, EU, UK
 
+// Second sanctions opinion from a different builder: praman-compliance-miner (Telegraph miner registration #6164),
+// read from its public endpoint. A supplier is only treated as clear when both sanctions providers say so.
+const SECOND_SANCTIONS_URL = process.env.SECOND_SANCTIONS_URL || 'https://praman-desk.vercel.app/api/miner/sanctions-screen';
+// The delivery checker that judges a supplier's delivered report (Telegraph Evaluator, same author).
+const DELIVERY_CHECK_URL = 'https://telegraph-evaluator.vercel.app/api/delivery-check';
+
 class InputError extends Error { constructor(msg) { super(msg); this.status = 400; } }
 
 // ---------- name and place helpers ----------
@@ -157,6 +163,20 @@ async function gleif(name, code) {
 }
 
 // Read a value from a Telegraph result whether it came back shaped to the Intent or raw.
+async function secondSanctions(name) {
+  const started = Date.now();
+  const url = `${SECOND_SANCTIONS_URL}?name=${encodeURIComponent(name)}`;
+  try {
+    const r = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(20000) });
+    const j = await r.json();
+    if (!r.ok || !j || typeof j !== 'object') return { url, error: `HTTP ${r.status}`, ms: Date.now() - started };
+    const potential = (j.potential_matches || []).map(m => m.matched_name).filter(Boolean);
+    const exact = (j.matches || []).map(m => m.matched_name || m.name).filter(Boolean);
+    return { url, matched: j.matched === true || j.match_found === true, near_miss: j.near_miss === true || j.review_required === true,
+      verdict: j.verdict || null, names: [...exact, ...potential].slice(0, 3), lists: j.lists || [], list_loaded: j.sdn_last_loaded || null, ms: Date.now() - started };
+  } catch (e) { return { url, error: e.name === 'TimeoutError' ? 'no answer within 20 s' : 'could not reach it', ms: Date.now() - started }; }
+}
+
 function pick(result, ...keys) {
   if (!result || typeof result !== 'object') return undefined;
   const layers = [result, result.data, result.answer, result.entity, result.result].filter(x => x && typeof x === 'object');
@@ -205,8 +225,9 @@ async function investigate(input, key) {
     gleif(s.supplier, code),
     claimsAsked ? telegraph('WEB_SEARCH_GENERAL', { query: `"${s.supplier}" ${s.city} ${[...s.claimed_certifications, ...s.claimed_export_markets].join(' ')} manufacturer certification export` }, `What independent evidence is there that "${s.supplier}" (${s.city ? s.city + ', ' : ''}${s.country}) holds ${s.claimed_certifications.join(', ') || 'any'} certification, exports to ${s.claimed_export_markets.join(', ') || 'other countries'}, and how long it has operated?`, key) : null,
     telegraph('NEWS_SEARCH_GENERAL', { query: `"${s.supplier}" fraud OR dispute OR lawsuit OR recall OR scam` }, `Find news coverage of fraud, disputes, lawsuits, recalls or scams involving "${s.supplier}" (${s.country}).`, key),
+    secondSanctions(s.supplier),
   ];
-  const [idc, reg, sanc, web, lei, ws, news] = await Promise.all(jobs);
+  const [idc, reg, sanc, web, lei, ws, news, sanc2] = await Promise.all(jobs);
 
   const findings = [];
   const add = (area, status, text, source) => findings.push({ area, status, text, source });
@@ -294,6 +315,17 @@ async function investigate(input, key) {
   else if (matched === 'review') add('Sanctions', 'check', `The screen returned REVIEW: a partial name match that needs a person to compare the entry with this supplier.`, `Telegraph sanctions specialist (${sanc.miner || 'miner not named'})`);
   else if (matched === true || matched === 'true') add('Sanctions', 'stop', `Possible sanctions match${lists ? ` on ${[].concat(lists).join(', ')}` : ''}. Check the exact entry before any further contact; a name match can be a different party.`, `Telegraph SANCTIONS_SCREENING_MATCH_GENERAL (${sanc.miner || 'miner not named'})`);
   else add('Sanctions', 'ok', `No match reported${lists ? ` on ${[].concat(lists).join(', ')}` : ''}. One provider only.`, `Telegraph SANCTIONS_SCREENING_MATCH_GENERAL (${sanc.miner || 'miner not named'})`);
+
+  // 2b. Sanctions, second opinion from a different builder
+  const src2 = `praman-compliance-miner, Telegraph miner #6164 (public endpoint)${sanc2.list_loaded ? `, list loaded ${String(sanc2.list_loaded).slice(0, 10)}` : ''}`;
+  if (sanc2.error) add('Sanctions, second opinion', 'unverified', `The second sanctions provider gave no answer (${sanc2.error}). With only one provider, the supplier is not treated as clear.`, src2);
+  else if (sanc2.matched) add('Sanctions, second opinion', 'stop', `Sanctions match${sanc2.names.length ? `: ${sanc2.names.join('; ')}` : ''}${sanc2.lists.length ? ` on ${sanc2.lists.join(', ')}` : ''}. Do not pay until a person has compared the entry with this supplier.`, src2);
+  else if (sanc2.near_miss) add('Sanctions, second opinion', 'check', `Near match${sanc2.names.length ? ` with ${sanc2.names.join('; ')}` : ''}: the name is spelled differently but sounds alike. A person must compare the entry with this supplier before any payment.`, src2);
+  else add('Sanctions, second opinion', 'ok', `No match${sanc2.lists.length ? ` on ${sanc2.lists.join(', ')}` : ''}.`, src2);
+  const firstClear = findings.some(f => f.area === 'Sanctions' && f.status === 'ok');
+  const secondClear = !sanc2.error && !sanc2.matched && !sanc2.near_miss;
+  if (firstClear && secondClear) add('Sanctions agreement', 'ok', 'Two sanctions providers from different builders both report no match.', 'Both sanctions answers compared in code');
+  else if (firstClear !== secondClear && !sanc2.error) add('Sanctions agreement', 'check', 'The two sanctions providers disagree. The supplier is not treated as clear until a person checks the entry.', 'Both sanctions answers compared in code');
 
   // 3. Website
   if (!s.website) add('Company website', 'not_found', 'The listing gives no company website, only the marketplace storefront.', 'Listing');
@@ -383,7 +415,7 @@ async function investigate(input, key) {
   const identityConfirmed = findings.some(f => (f.area === 'Registered identity' || f.area === 'Legal Entity Identifier') && f.status === 'ok');
   let verdict, why;
   if (has('stop')) { verdict = 'STOP'; why = 'At least one check found a serious problem. Resolve it before paying anything.'; }
-  else if (has('mismatch') || !identityConfirmed || findings.some(f => f.status === 'unverified' && f.area !== 'Website safety') || sancText || findings.some(f => f.area === 'Sanctions' && f.status === 'check')) { verdict = 'VERIFY FIRST'; why = identityConfirmed ? 'Some details disagree or could not be checked.' : 'The company behind the listing could not be confirmed from an independent register. Ask for the business licence and check it before paying, and use the marketplace\'s payment protection.'; }
+  else if (has('mismatch') || !identityConfirmed || findings.some(f => f.status === 'unverified' && f.area !== 'Website safety') || sancText || findings.some(f => /^Sanctions/.test(f.area) && f.status === 'check')) { verdict = 'VERIFY FIRST'; why = identityConfirmed ? 'Some details disagree or could not be checked.' : 'The company behind the listing could not be confirmed from an independent register. Ask for the business licence and check it before paying, and use the marketplace\'s payment protection.'; }
   else { verdict = 'PROCEED WITH STANDARD CARE'; why = 'Identity confirmed from an independent register, no sanctions match, no red flags in the documents checked. This is not a guarantee of product quality.'; }
 
   const calls = [idc, reg, sanc, web, ws, news].filter(Boolean);
@@ -401,10 +433,61 @@ async function investigate(input, key) {
           ? `Order value ${usd(value)}. Hold the ${s.deposit_pct}% deposit (${usd(deposit)}) until the open points are answered${blocking.length ? `: ${blocking.join(', ')}` : ''}.`
           : `Order value ${usd(value)}, ${s.deposit_pct}% deposit ${usd(deposit)}. No blocking problem found; standard payment protection still applies.` };
   }
+  // Every paid answer, judged. Facts a register can settle are compared with GLEIF, the free public register
+  // that Telegraph Evaluator uses as its truth source for CORPORATE_REGISTRY_LOOKUP_GENERAL.
+  const reg0 = best && best.m >= 0.67 && !(code && best.country && best.country !== code) ? best : null;
+  const norm = x => String(x || '').replace(/\W/g, '').toUpperCase();
+  const reviews = [];
+  const review = (call, question, decision, reason, against) => reviews.push({ intent: call ? call.intent : null, question, miner: call ? (call.miner || 'not named') : '-', decision, reason, judged_against: against });
+  const unusable = c => c.error ? `No usable answer (${String(c.error).slice(0, 120)}).` : typeof c.result === 'string' ? 'Plain text only, no fields to check.' : null;
+  // Registry
+  if (unusable(reg)) review(reg, 'Official register record', 'unusable', unusable(reg), '-');
+  else if (regName && !regSame) review(reg, 'Official register record', 'rejected', `Answered about a different company: ${regName}.`, 'The order');
+  else if (!regName) review(reg, 'Official register record', 'unusable', 'No company name in the answer.', '-');
+  else if (!reg0) review(reg, 'Official register record', 'not_checked', 'GLEIF has no record for this supplier, so the answer cannot be checked.', 'GLEIF');
+  else if (regId && norm(regId) === norm(reg0.lei) && reg0.registered_as) review(reg, 'Official register record', 'rejected', `Gave the LEI (${reg0.lei}) where the registration number was asked. GLEIF's registration number is ${reg0.registered_as}.`, 'GLEIF');
+  else if (regId && reg0.registered_as && norm(regId) !== norm(reg0.registered_as) && norm(regId) !== norm(reg0.lei)) review(reg, 'Official register record', 'rejected', `Registration number ${regId} contradicts GLEIF (${reg0.registered_as}).`, 'GLEIF');
+  else review(reg, 'Official register record', 'accepted', `Name${regId ? ' and registration number' : ''} agree with GLEIF (${reg0.legal_name}).`, 'GLEIF');
+  // A rejected register answer is not used: its finding says so, and identity rests on GLEIF instead.
+  const regRv = reviews[reviews.length - 1];
+  if (regRv.decision === 'rejected') { const f = findings.find(x => x.area === 'Registered identity'); if (f && f.status === 'ok') { f.status = 'check'; f.text = `Answer rejected and not used: ${regRv.reason}`; } }
+  // Identity
+  if (unusable(idc)) review(idc, 'Who the company is', 'unusable', unusable(idc), '-');
+  else if (ident && (ident.found === false || !ident.legal_name)) review(idc, 'Who the company is', reg0 ? 'rejected' : 'not_checked', reg0 ? `Said no company was found, but GLEIF has ${reg0.legal_name} (LEI ${reg0.lei}).` : 'Found nothing, and GLEIF has no record either.', 'GLEIF');
+  else if (ident && nameMatchStrict(s.supplier, ident.legal_name) < 0.67) review(idc, 'Who the company is', 'rejected', `Answered about a different company: ${ident.legal_name}.`, 'The order');
+  else if (ident && reg0 && ident.lei && norm(ident.lei) !== norm(reg0.lei)) review(idc, 'Who the company is', 'rejected', `LEI ${ident.lei} contradicts GLEIF (${reg0.lei}).`, 'GLEIF');
+  else if (ident && reg0) review(idc, 'Who the company is', 'accepted', `Agrees with GLEIF (${reg0.legal_name}${reg0.lei ? `, LEI ${reg0.lei}` : ''}).`, 'GLEIF');
+  else review(idc, 'Who the company is', 'not_checked', 'A business profile with no register fields that GLEIF could confirm.', '-');
+  // Sanctions: two providers, each judged against the other
+  const firstSays = unusable(sanc) ? null : findings.find(f => f.area === 'Sanctions');
+  if (!firstSays) review(sanc, 'Sanctions screen', 'unusable', unusable(sanc) || 'No usable answer.', '-');
+  else if (sanc2.error) review(sanc, 'Sanctions screen', 'not_checked', 'The second provider did not answer, so there is nothing to compare with.', 'Second sanctions provider');
+  else if ((firstSays.status === 'ok') === secondClear) review(sanc, 'Sanctions screen', 'accepted', 'The second provider, run by a different builder, gives the same result.', 'Second sanctions provider');
+  else review(sanc, 'Sanctions screen', 'disputed', `The second provider ${secondClear ? 'found no match' : `flags ${sanc2.names.join('; ') || 'a possible match'}`}, so this answer is not trusted on its own.`, 'Second sanctions provider');
+  for (const [c, q] of [[web, 'Is the website flagged'], [ws, 'Evidence for the listing claims'], [news, 'Fraud or dispute news']]) {
+    if (!c) continue;
+    if (unusable(c)) review(c, q, 'unusable', unusable(c), '-');
+    else review(c, q, 'not_checked', 'No public register can settle this question, so it is shown as the provider\'s answer, not as a fact.', '-');
+  }
+
+  // The agent's purchase decision (#12). Sandbox: no money moves.
+  const amount = money ? Math.round(money.deposit_at_risk * 100) / 100 : null;
+  let purchase;
+  if (verdict === 'STOP') purchase = { decision: 'blocked', title: 'Purchase blocked', amount_usd: amount, reason: `The agent will not pay: ${findings.filter(f => f.status === 'stop').map(f => f.area).join(', ') || why}.` };
+  else if (verdict.startsWith('VERIFY')) purchase = { decision: 'held', title: 'Payment held', amount_usd: amount, reason: 'The agent will not pay until the open points are answered. Nothing is lost by waiting.' };
+  else {
+    let h = 0; for (const ch of `${s.supplier}|${amount}|${Date.now()}`) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    purchase = { decision: 'authorised', title: 'Purchase authorised', amount_usd: amount, reason: 'Every check that decides payment passed. The agent authorises the deposit; the balance waits for the delivery check.',
+      receipt: { id: 'SBX-' + h.toString(16).toUpperCase().padStart(8, '0'), created_at: new Date().toISOString() } };
+  }
+  purchase.mode = 'sandbox: a test decision, no money moves';
+
   const W = { ok: 3, check: -1, not_found: -2, unverified: -3, mismatch: -8, stop: -100 };
   const score = findings.reduce((t, f) => t + (W[f.status] ?? 0), 0);
   return {
-    input: s, verdict, why, findings, score, money,
+    input: s, verdict, why, findings, score, money, purchase, answer_reviews: reviews,
+    register: reg0 ? { legal_name: reg0.legal_name, lei: reg0.lei, registered_as: reg0.registered_as || null, country: reg0.country || null } : null,
+    second_opinion: sanc2, delivery_check_url: DELIVERY_CHECK_URL,
     telegraph_calls: calls,
     free_sources: [{ source: 'GLEIF', url: lei.url, records: lei.records.length, attempts: lei.log, error: lei.error || null }],
     total_cost_usd: Math.round(total * 10000) / 10000,

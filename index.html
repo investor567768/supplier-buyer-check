@@ -64,11 +64,37 @@ footer .links a span{color:var(--acc)}
 footer .links a:hover{border-color:var(--acc)}
 footer .links a:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 footer p{margin:28px 0 0;line-height:1.6}
+html{scroll-padding-top:72px}
+nav.menu{display:flex;gap:4px;overflow-x:auto}
+nav.menu a{color:var(--mute);text-decoration:none;font-size:14px;padding:6px 9px;border-radius:8px;white-space:nowrap}
+nav.menu a:hover,nav.menu a:focus-visible{color:var(--ink);background:var(--line);outline:none}
+@media(max-width:640px){header.bar .wrap{height:auto;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}nav.menu{order:3;width:100%}.brand{font-size:15px}}
+.uc{display:inline-block;font-size:13px;color:var(--mute);border:1px solid var(--line);border-radius:99px;padding:3px 10px;margin-bottom:12px}
+.flow{list-style:none;padding:0;margin:0 0 16px;display:grid;gap:10px}
+.flow li{display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:start}
+.flow .n{width:28px;height:28px;border-radius:50%;background:color-mix(in srgb,var(--acc) 18%,transparent);color:var(--acc);display:grid;place-items:center;font-weight:700;font-size:14px}
+.flow b{display:block}
+.flow span{color:var(--mute);font-size:15px}
+.demos{display:flex;flex-wrap:wrap;gap:8px}
+.buy{border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1px dashed}
+.buy b{font-size:18px}
+.b-blocked{border-color:var(--bad)} .b-held{border-color:var(--warn)} .b-authorised{border-color:var(--ok)}
+.b-blocked b{color:var(--bad)} .b-held b{color:var(--warn)} .b-authorised b{color:var(--ok)}
+.d-accepted{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.d-rejected{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.d-disputed{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.d-unusable,.d-not_checked{background:color-mix(in srgb,var(--mute) 18%,transparent);color:var(--mute)}
+.fields{display:flex;flex-wrap:wrap;gap:6px 16px;margin:6px 0 4px}
+.fields label{display:flex;align-items:center;gap:6px;color:var(--ink);font-size:15px;margin:0}
+.fields input{width:auto;accent-color:var(--acc)}
+textarea.mono{font-size:14px}
+@media(max-width:640px){table.rv,table.rv tbody,table.rv tr,table.rv td{display:block}table.rv tr:first-child{display:none}table.rv tr{border-top:1px solid var(--line);padding:8px 0}table.rv td{border:0;padding:2px 0}}
 </style>
 </head>
 <body>
 <header class="bar"><div class="wrap">
   <div class="logo">S</div><div class="brand">Supplier Buyer Check</div><div class="sp"></div>
+  <nav class="menu" aria-label="Page"><a href="#how">How it works</a><a href="#check">Check supplier</a><a href="#delivery">Check delivery</a></nav>
   <button class="theme" id="theme">Light</button>
 </div></header>
 
@@ -76,8 +102,27 @@ footer p{margin:28px 0 0;line-height:1.6}
   <h1>Check the supplier before you pay.</h1>
   <p class="lede">Paste an Alibaba listing or enter the details yourself. You get one recommendation, with every source and cost shown.</p>
 
-  <section>
-    <h2>Run a check</h2>
+  <section id="how">
+    <h2>How the agent buys safely</h2>
+    <div class="card">
+      <div class="uc">Commercial use case 12: Verified Autonomous Procurement</div>
+      <ol class="flow">
+        <li><div class="n">1</div><div><b>It investigates the supplier.</b><span>It buys answers about the company from Telegraph miners.</span></div></li>
+        <li><div class="n">2</div><div><b>It checks every answer it bought.</b><span>Wrong answers are rejected, and you see why.</span></div></li>
+        <li><div class="n">3</div><div><b>It decides whether to pay.</b><span>Blocked, held, or paid.</span></div></li>
+        <li><div class="n">4</div><div><b>It checks the delivery before paying the rest.</b><span>A wrong or incomplete delivery is refused.</span></div></li>
+      </ol>
+      <div class="demos">
+        <button type="button" class="chip" id="demo-block">See a purchase blocked</button>
+        <button type="button" class="chip" id="demo-pay">See a purchase authorised</button>
+        <button type="button" class="chip" id="demo-deliv">See a delivery checked</button>
+      </div>
+      <p class="hint">Test payments only. No real money moves.</p>
+    </div>
+  </section>
+
+  <section id="check">
+    <h2>Check a supplier</h2>
     <form class="card" id="form">
       <div class="sub">Fill it in for me</div>
       <label for="paste">Copy the seller's Alibaba page (Ctrl + A, Ctrl + C) and paste it here</label>
@@ -126,6 +171,34 @@ footer p{margin:28px 0 0;line-height:1.6}
 
   <section id="out" hidden></section>
 
+  <section id="delivery">
+    <h2>Check a delivery before paying the rest</h2>
+    <form class="card" id="dform">
+      <p style="margin-top:0">Paste what the supplier delivered. <a href="https://telegraph-evaluator.vercel.app/#delivery">Telegraph Evaluator</a> checks it against the official register.</p>
+      <div class="grid">
+        <div class="full"><label for="d-co">Company the order was for (legal name or LEI)</label><input id="d-co" autocomplete="off" placeholder="e.g. Siemens Aktiengesellschaft"></div>
+      </div>
+      <div class="sub" style="margin-top:12px">What the order asked for</div>
+      <div class="fields" id="d-fields">
+        <label><input type="checkbox" value="legal_name" checked> Legal name</label>
+        <label><input type="checkbox" value="lei" checked> LEI</label>
+        <label><input type="checkbox" value="registration_number" checked> Registration number</label>
+        <label><input type="checkbox" value="jurisdiction"> Country</label>
+        <label><input type="checkbox" value="status"> Status</label>
+        <label><input type="checkbox" value="registered_address"> Registered address</label>
+      </div>
+      <label for="d-rep" style="margin-top:12px">What the supplier delivered</label>
+      <textarea id="d-rep" class="mono" rows="6" placeholder="One field per line, for example&#10;Legal name: Siemens Aktiengesellschaft&#10;LEI: W38RGI023J3WT1HWRP32&#10;Registration number: HRB 6684"></textarea>
+      <div class="demos" style="margin-top:10px"><span class="hint" style="margin:0;align-self:center">Try one:</span>
+        <button type="button" class="chip" data-d="good">Correct delivery</button>
+        <button type="button" class="chip" data-d="wrong">Wrong facts</button>
+        <button type="button" class="chip" data-d="short">Missing fields</button>
+      </div>
+      <button class="run" id="drun" type="submit">Check this delivery</button>
+      <div id="dout" aria-live="polite"></div>
+    </form>
+  </section>
+
   <section id="cmp" hidden>
     <h2>Compare suppliers for the same order</h2>
     <div class="card" style="overflow-x:auto"><table id="cmpt"></table>
@@ -147,6 +220,9 @@ footer p{margin:28px 0 0;line-height:1.6}
       <li><b>Can they fulfil your order.</b> Your quantity and deadline against the supplier's claimed capacity.</li>
       <li><b>Disputes.</b> A paid news search for fraud, lawsuits and recalls.</li>
       <li><b>Side by side.</b> Check several suppliers for the same order; the table ranks them by evidence.</li>
+      <li><b>A second sanctions opinion.</b> A second sanctions provider, run by a different builder, screens the same name. The supplier is only treated as clear when both agree.</li>
+      <li><b>Every answer it bought.</b> Register answers are compared with GLEIF and marked accepted or rejected, with the reason.</li>
+      <li><b>The delivery.</b> Before the balance is paid, the delivered report is checked against the register by Telegraph Evaluator.</li>
       <li><b>The invoice.</b> Whether the account you are asked to pay belongs to the same company. A different account holder is the most common marketplace payment fraud.</li>
     </ol>
     <p class="hint">It does not check beneficial ownership or product quality. Network: Telegraph testnet.</p>
@@ -176,14 +252,27 @@ function render(r) {
   const vClass = r.verdict.startsWith('STOP') ? 'STOP' : r.verdict.startsWith('VERIFY') ? 'VERIFY' : 'PROCEED';
   let h = `<h2>Result: ${esc(r.input.supplier)}</h2><div class="card">`;
   h += `<div class="verdict v-${vClass}"><b>${esc(r.verdict)}</b>${esc(r.why)}${r.money ? `<div style="margin-top:10px;font-weight:600">${esc(r.money.summary)}</div>` : ''}</div>`;
+  if (r.purchase) {
+    const p = r.purchase, amt = p.amount_usd != null ? ` ($${Math.round(p.amount_usd).toLocaleString('en-US')} deposit)` : '';
+    h += `<div class="buy b-${esc(p.decision)}"><div class="hint" style="margin:0 0 2px">The agent's decision</div><b>${esc(p.title)}${esc(amt)}</b><div>${esc(p.reason)}</div>`
+      + (p.receipt ? `<div class="hint">Sandbox receipt <span class="mono">${esc(p.receipt.id)}</span>, ${esc(p.receipt.created_at)}. No money moved.</div>` : `<div class="hint">${esc(p.mode)}.</div>`)
+      + (p.decision !== 'blocked' ? `<button type="button" class="chip" id="todeliv" style="margin-top:10px">Next: check the delivery</button>` : '') + `</div>`;
+  }
+  if (r.answer_reviews && r.answer_reviews.length) {
+    const DL = { accepted: 'Accepted', rejected: 'Rejected', disputed: 'Disputed', unusable: 'No usable answer', not_checked: 'Not checkable' };
+    h += `<div class="sub">Answers the agent bought</div><table class="rv"><tr><th>Question</th><th>Miner</th><th>Result</th><th>Why</th></tr>`
+      + r.answer_reviews.map(a => `<tr><td>${esc(a.question)}</td><td class="hint">${esc(a.miner)}</td><td><span class="pill d-${esc(a.decision)}">${DL[a.decision] || esc(a.decision)}</span></td><td>${esc(a.reason)}${a.judged_against && a.judged_against !== '-' ? `<div class="hint">Checked against: ${esc(a.judged_against)}</div>` : ''}</td></tr>`).join('')
+      + `</table><div class="sub">All findings</div>`;
+  }
   for (const f of r.findings) h += `<div class="f"><span class="pill s-${f.status}">${LABEL[f.status] || f.status}</span><div><b>${esc(f.area)}.</b> ${esc(f.text)}</div><div class="src">Source: ${esc(f.source)}</div></div>`;
-  h += `</div><h2 style="margin-top:24px">Telegraph requests and receipts</h2><div class="card"><table><tr><th>Intent</th><th>Miner</th><th>Cost</th><th>Receipt / signal</th></tr>`;
+  h += `</div><h2 style="margin-top:24px">Telegraph requests and receipts</h2><div class="card" style="overflow-x:auto"><table><tr><th>Intent</th><th>Miner</th><th>Cost</th><th>Receipt / signal</th></tr>`;
   for (const c of r.telegraph_calls) {
     const rec = c.payments.map(p => p.receipt_hash).filter(Boolean).join(' ');
     h += `<tr><td>${esc(c.intent)}<div class="hint">via ${esc(c.form || '-')}</div>${c.first_try_refused ? `<div class="hint">First attempt refused: ${esc(c.first_try_refused)}</div>` : ''}${c.error ? `<div class="err">${esc(c.error)}</div>` : ''}${c.raw_preview ? `<details><summary class="hint">Raw answer</summary><div class="mono">${esc(c.raw_preview)}</div></details>` : ''}</td><td>${esc(c.miner || '-')}</td><td>${c.cost_usd != null ? '$' + c.cost_usd : '-'}</td><td class="mono">${esc(rec || c.signal_hash || '-')}</td></tr>`;
   }
   h += `</table><p class="hint">Total paid: $${r.total_cost_usd} on ${esc(r.network)}. Checked ${esc(r.checked_at)}.</p><button class="run" id="addcmp" type="button">Add to comparison</button></div>`;
   $('out').innerHTML = h; $('out').hidden = false; $('out').scrollIntoView({ behavior: 'smooth' });
+  if ($('todeliv')) $('todeliv').onclick = () => { $('d-co').value = (r.register && (r.register.lei || r.register.legal_name)) || r.input.supplier; $('delivery').scrollIntoView({ behavior: 'smooth' }); $('d-rep').focus({ preventScroll: true }); };
   $('addcmp').onclick = () => { if (!compared.some(c => c.checked_at === r.checked_at)) compared.push(r); drawCmp(); $('cmp').scrollIntoView({ behavior: 'smooth' }); };
 }
 
@@ -289,6 +378,47 @@ $('form').onsubmit = async e => {
   } catch (err) {
     $('out').innerHTML = `<div class="card err">${esc(err.message)}</div>`; $('out').hidden = false;
   } finally { $('run').disabled = false; $('run').textContent = 'Check this supplier'; }
+};
+
+// ---------- #12 demos ----------
+$('demo-block').onclick = () => { fill({ ...EXAMPLES[3], product: 'Industrial control units', quantity: '200', unit_price: '400', deposit_pct: '30', deadline_days: '60' }); $('check').scrollIntoView({ behavior: 'smooth' }); };
+$('demo-pay').onclick = () => { fill({ supplier: 'Siemens Aktiengesellschaft', country: 'Germany', city: 'Munich', website: 'www.siemens.com', claimed_registration: 'HRB 6684', product: 'SINAMICS frequency inverters', quantity: '200', unit_price: '400', deposit_pct: '30', deadline_days: '60', claimed_monthly_capacity: '5000' }); $('check').scrollIntoView({ behavior: 'smooth' }); };
+$('demo-deliv').onclick = () => { loadDelivery('good'); $('delivery').scrollIntoView({ behavior: 'smooth' }); };
+
+// ---------- Delivery check (Telegraph Evaluator) ----------
+const DELIVERY_URL = 'https://telegraph-evaluator.vercel.app/api/delivery-check';
+const DSAMPLE = {
+  good: 'Legal name: Siemens Aktiengesellschaft\nLEI: W38RGI023J3WT1HWRP32\nRegistration number: HRB 6684\nCountry: Germany',
+  wrong: 'Legal name: Siemens AG\nLEI: W38RGI023J3WT1HWRP32\nRegistration number: W38RGI023J3WT1HWRP32\nCountry: Germany',
+  short: 'Legal name: Siemens Aktiengesellschaft\nCountry: Germany',
+};
+function loadDelivery(k) {
+  $('d-co').value = 'W38RGI023J3WT1HWRP32';
+  $('d-rep').value = DSAMPLE[k];
+  $('d-fields').querySelectorAll('input').forEach(b => b.checked = ['legal_name', 'lei', 'registration_number'].includes(b.value));
+}
+document.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { loadDelivery(b.dataset.d); $('dform').requestSubmit(); });
+$('dform').onsubmit = async e => {
+  e.preventDefault();
+  const co = $('d-co').value.trim(), rep = $('d-rep').value.trim();
+  const required = [...$('d-fields').querySelectorAll('input:checked')].map(b => b.value);
+  if (!co || !rep) { $('dout').innerHTML = '<p class="err">Add the company and what was delivered first.</p>'; return; }
+  if (!required.length) { $('dout').innerHTML = '<p class="err">Tick at least one thing the order asked for.</p>'; return; }
+  const task = /^[A-Z0-9]{20}$/i.test(co) ? { lei: co.toUpperCase(), required } : { company: co, required };
+  $('drun').disabled = true; $('drun').textContent = 'Checking against the register...';
+  try {
+    const r = await fetch(`${DELIVERY_URL}?task=${encodeURIComponent(JSON.stringify(task))}&result=${encodeURIComponent(rep)}`);
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'The delivery check failed.');
+    const V = { accept: ['PROCEED', 'Delivery accepted', 'The balance is released to the supplier.'], reject_incorrect: ['STOP', 'Delivery rejected: wrong facts', 'The balance is not paid. Ask for a corrected delivery or a refund.'], reject_incomplete: ['VERIFY', 'Delivery rejected: incomplete', 'The balance is not paid until the missing parts arrive.'], not_assessed: ['VERIFY', 'Cannot be checked', 'The balance stays held: the company in the order could not be found in the register.'] }[j.verdict] || ['VERIFY', j.verdict, ''];
+    const LBL = { legal_name: 'Legal name', lei: 'LEI', registration_number: 'Registration number', jurisdiction: 'Country', entity_status: 'Status', registered_address: 'Registered address' };
+    const RES = { match: ['ok', 'Matches'], mismatch: ['stop', 'Wrong'], missing: ['check', 'Missing'], unreadable: ['check', 'Unreadable'] };
+    $('dout').innerHTML = `<div class="verdict v-${V[0]}" style="margin-top:16px"><b>${esc(V[1])}</b>${esc(V[2])}${j.reason ? `<div class="hint">${esc(j.reason)}</div>` : ''}</div>`
+      + (j.checks || []).map(c => { const x = RES[c.result] || ['unverified', c.result]; return `<div class="f"><span class="pill s-${x[0]}">${x[1]}</span><div><b>${esc(LBL[c.field] || c.field)}.</b> Delivered: ${esc(c.claimed ?? 'nothing')}. Register: ${esc(c.register ?? '-')}.${c.why ? ` ${esc(c.why)}` : ''}</div></div>`; }).join('')
+      + `<p class="hint">Checked by Telegraph Evaluator against <a href="${esc(j.sources && j.sources.register || 'https://www.gleif.org')}">GLEIF</a> at ${esc(j.checked_at || '')}. Sandbox: no money moves.</p>`;
+  } catch (err) {
+    $('dout').innerHTML = `<p class="err">${esc(err.message === 'Failed to fetch' ? 'Could not reach the delivery checker. Try again.' : err.message)}</p>`;
+  } finally { $('drun').disabled = false; $('drun').textContent = 'Check this delivery'; }
 };
 
 fetch('runs/index.json').then(r => r.json()).then(list => {

@@ -3,10 +3,14 @@ import assert from 'node:assert/strict';
 import { investigate, nameMatch, cc, domainOf, MARKETPLACE, allowRun } from '../api/check.js';
 
 // Fake Telegraph and GLEIF. Nothing is bought in tests.
-function mock({ registry, sanctions, url, identity, gleif = [], fail = {} }) {
+function mock({ registry, sanctions, url, identity, gleif = [], fail = {}, second = { matched: false, near_miss: false, verdict: 'CLEAR', lists: ['US Treasury OFAC SDN'] } }) {
   const calls = [];
   globalThis.fetch = async (u, opts = {}) => {
     u = String(u);
+    if (u.includes('praman-desk.vercel.app')) {
+      if (second === 'down') throw new Error('down');
+      return { ok: true, status: 200, json: async () => second };
+    }
     if (u.includes('/lei-records/W38RGI023J3WT1HWRP32')) {
       return { ok: true, status: 200, json: async () => ({ data: { id: 'W38RGI023J3WT1HWRP32', attributes: { entity: { legalName: { name: 'Siemens Aktiengesellschaft' }, status: 'ACTIVE', legalAddress: { country: 'DE', city: 'Munich' }, registeredAs: 'HRB 6684' } } } }) };
     }
@@ -295,4 +299,62 @@ test('register answer carries an LEI: GLEIF is looked up by it, unrated website 
   const r = await investigate({ supplier: 'Siemens AG', country: 'Germany', city: 'Munich', website: 'www.siemens.com' }, 'k');
   assert.equal(r.findings.find(x => x.area === 'Legal Entity Identifier').status, 'ok');
   assert.equal(r.findings.find(x => x.area === 'Website safety').status, 'unverified');
+});
+
+// ---------- #12: second sanctions opinion, judged answers, purchase decision ----------
+const siemens = { supplier: 'Siemens Aktiengesellschaft', country: 'Germany', city: 'Munich', quantity: '100', unit_price: '50', deposit_pct: '30' };
+const siemensGleif = [{ lei: 'W38RGI023J3WT1HWRP32', name: 'Siemens Aktiengesellschaft', country: 'DE', city: 'Munich', reg: 'HRB 6684' }];
+
+test('clean supplier, both sanctions providers clear: purchase authorised with a sandbox receipt', async () => {
+  mock({ registry: { legal_name: 'Shenzhen Example Power Technology Co., Ltd.', registration_id: '91440300XXXX', active: true, jurisdiction: 'CN' }, sanctions: { matched: false, lists: ['OFAC SDN'] }, url: { verdict: 'clean' } });
+  const r = await investigate({ ...base, quantity: '1000', unit_price: '10', deposit_pct: '30', claimed_monthly_capacity: '5000', deadline_days: '60' }, 'k');
+  assert.equal(r.verdict, 'PROCEED WITH STANDARD CARE');
+  assert.equal(r.purchase.decision, 'authorised');
+  assert.equal(r.purchase.amount_usd, 3000);
+  assert.match(r.purchase.receipt.id, /^SBX-[0-9A-F]{8}$/);
+  assert.match(r.purchase.mode, /sandbox/);
+  assert.ok(r.findings.some(f => f.area === 'Sanctions agreement' && f.status === 'ok'));
+  assert.equal(r.answer_reviews.find(x => x.intent === 'SANCTIONS_SCREENING_MATCH_GENERAL').decision, 'accepted');
+});
+
+test('registry miner gives the LEI as the registration number: answer rejected against GLEIF', async () => {
+  mock({ registry: { legal_name: 'Siemens Aktiengesellschaft', registration_id: 'W38RGI023J3WT1HWRP32', jurisdiction: 'DE' }, sanctions: { matched: false }, gleif: siemensGleif });
+  const r = await investigate(siemens, 'k');
+  const rv = r.answer_reviews.find(x => x.intent === 'CORPORATE_REGISTRY_LOOKUP_GENERAL');
+  assert.equal(rv.decision, 'rejected');
+  assert.match(rv.reason, /HRB 6684/);
+  assert.equal(r.register.lei, 'W38RGI023J3WT1HWRP32');
+});
+
+test('registry miner agrees with GLEIF: answer accepted', async () => {
+  mock({ registry: { legal_name: 'Siemens Aktiengesellschaft', registration_id: 'HRB 6684', jurisdiction: 'DE' }, sanctions: { matched: false }, gleif: siemensGleif });
+  const r = await investigate(siemens, 'k');
+  assert.equal(r.answer_reviews.find(x => x.intent === 'CORPORATE_REGISTRY_LOOKUP_GENERAL').decision, 'accepted');
+});
+
+test('second provider flags a near match the first missed: disputed, payment held', async () => {
+  mock({ registry: { legal_name: 'Shenzhen Example Power Technology Co., Ltd.', registration_id: '9144', active: true }, sanctions: { matched: false }, url: { verdict: 'clean' },
+    second: { matched: false, near_miss: true, review_required: true, verdict: 'NEAR_MISS_REVIEW', potential_matches: [{ matched_name: 'BOUT, Viktor Anatolijevitch' }], lists: ['US Treasury OFAC SDN'] } });
+  const r = await investigate(base, 'k');
+  assert.equal(r.verdict.startsWith('VERIFY'), true);
+  assert.equal(r.purchase.decision, 'held');
+  assert.equal(r.purchase.receipt, undefined);
+  assert.ok(r.findings.some(f => f.area === 'Sanctions, second opinion' && f.status === 'check' && /BOUT/.test(f.text)));
+  assert.equal(r.answer_reviews.find(x => x.intent === 'SANCTIONS_SCREENING_MATCH_GENERAL').decision, 'disputed');
+});
+
+test('second provider unreachable: never treated as clear', async () => {
+  mock({ registry: { legal_name: 'Shenzhen Example Power Technology Co., Ltd.', registration_id: '9144', active: true }, sanctions: { matched: false }, url: { verdict: 'clean' }, second: 'down' });
+  const r = await investigate(base, 'k');
+  assert.notEqual(r.verdict, 'PROCEED WITH STANDARD CARE');
+  assert.equal(r.purchase.decision, 'held');
+});
+
+test('second provider reports a match: STOP and purchase blocked', async () => {
+  mock({ registry: { legal_name: 'Shenzhen Example Power Technology Co., Ltd.', registration_id: '9144', active: true }, sanctions: { matched: false },
+    second: { matched: true, match_found: true, matches: [{ matched_name: 'EXAMPLE POWER' }], lists: ['US Treasury OFAC SDN'] } });
+  const r = await investigate({ ...base, quantity: '10', unit_price: '10' }, 'k');
+  assert.equal(r.verdict, 'STOP');
+  assert.equal(r.purchase.decision, 'blocked');
+  assert.match(r.purchase.reason, /Sanctions, second opinion/);
 });
