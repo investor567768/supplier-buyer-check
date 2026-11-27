@@ -136,7 +136,7 @@ textarea.mono{font-size:14px}
 <div class="ov" id="ov" hidden role="dialog" aria-label="Menu">
   <div class="top"><div class="logo">S</div><div class="brand">Supplier Buyer Check</div><div class="sp"></div><button class="menuBtn x" id="menuClose" type="button" aria-label="Close menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 2l12 12M14 2L2 14"/></svg></button></div>
   <nav aria-label="Menu">
-    <a href="#check" data-go="home" style="--i:0"><b>Check supplier</b><small>Before you pay</small></a>
+    <a href="#check" data-go="check" style="--i:0"><b>Check supplier</b><small>Before you pay</small></a>
     <a href="#delivery" data-go="delivery" style="--i:1"><b>Check delivery</b><small>Before the balance</small></a>
     <a href="#how" data-go="how" style="--i:2"><b>How it works</b><small>The 4 steps</small></a>
     <a href="#saved" data-go="saved" style="--i:3"><b>Saved</b><small>Past checks</small></a>
@@ -149,6 +149,25 @@ textarea.mono{font-size:14px}
 <div id="v-home" data-view>
   <h1>Check the supplier before you pay.</h1>
   <p class="lede">Paste an Alibaba listing or enter the details yourself. You get one recommendation, with every source and cost shown.</p>
+
+  <section id="how">
+    <h2>How it works</h2>
+    <div class="card">
+      <p class="hint" style="margin:0 0 14px;font-size:16px">Picture an AI assistant buying for you. Before it pays, it checks the seller. After, it checks what arrived.</p>
+      <ol class="flow">
+        <li><div class="n">1</div><div><b>It investigates the supplier.</b><span>It buys answers about the company from Telegraph miners.</span></div></li>
+        <li><div class="n">2</div><div><b>It checks every answer it bought.</b><span>Wrong answers are rejected, and you see why.</span></div></li>
+        <li><div class="n">3</div><div><b>It decides whether to pay.</b><span>Blocked, held, or paid.</span></div></li>
+        <li><div class="n">4</div><div><b>It checks the delivery before paying the rest.</b><span>A wrong or incomplete delivery is refused.</span></div></li>
+      </ol>
+      <div class="demos">
+        <button type="button" class="chip" id="demo-block">See a purchase blocked</button>
+        <button type="button" class="chip" id="demo-pay">See a purchase authorised</button>
+        <button type="button" class="chip" id="demo-deliv">See a delivery checked</button>
+      </div>
+      <p class="hint">Test payments only. No real money moves.</p>
+    </div>
+  </section>
 
 
   <section id="check">
@@ -207,28 +226,6 @@ textarea.mono{font-size:14px}
     <p class="hint">Each column is a separate check. Add another supplier with the form above, then press "Add to comparison" on its result. <a href="#" id="clear">Clear comparison</a></p></div>
   </section>
 
-
-</div>
-
-<div id="v-how" data-view hidden>
-  <section id="how">
-    <h2>How it works</h2>
-    <div class="card">
-      <p class="hint" style="margin:0 0 14px;font-size:16px">Picture an AI assistant buying for you. Before it pays, it checks the seller. After, it checks what arrived.</p>
-      <ol class="flow">
-        <li><div class="n">1</div><div><b>It investigates the supplier.</b><span>It buys answers about the company from Telegraph miners.</span></div></li>
-        <li><div class="n">2</div><div><b>It checks every answer it bought.</b><span>Wrong answers are rejected, and you see why.</span></div></li>
-        <li><div class="n">3</div><div><b>It decides whether to pay.</b><span>Blocked, held, or paid.</span></div></li>
-        <li><div class="n">4</div><div><b>It checks the delivery before paying the rest.</b><span>A wrong or incomplete delivery is refused.</span></div></li>
-      </ol>
-      <div class="demos">
-        <button type="button" class="chip" id="demo-block">See a purchase blocked</button>
-        <button type="button" class="chip" id="demo-pay">See a purchase authorised</button>
-        <button type="button" class="chip" id="demo-deliv">See a delivery checked</button>
-      </div>
-      <p class="hint">Test payments only. No real money moves.</p>
-    </div>
-  </section>
 
 </div>
 
@@ -493,10 +490,10 @@ fetch('runs/index.json').then(r => r.json()).then(list => {
 
 
 /* pages */
-const VIEWS = ['home', 'delivery', 'how', 'saved', 'what'];
+const VIEWS = ['home', 'delivery', 'saved', 'what'];
 function hashView() { const h = location.hash.replace(/^#\/?/, ''); return VIEWS.includes(h) ? h : 'home'; }
 function go(v, push = true) {
-  if (v === 'check') { v = 'home'; setTimeout(() => $('check').scrollIntoView({ behavior: 'smooth' }), 0); }
+  if (v === 'check' || v === 'how') { const t = v; v = 'home'; setTimeout(() => $(t).scrollIntoView({ behavior: 'smooth' }), 60); }
   if (!VIEWS.includes(v)) v = 'home';
   VIEWS.forEach(n => { $('v-' + n).hidden = n !== v; });
   if (push && hashView() !== v) history.pushState(null, '', v === 'home' ? location.pathname : '#' + v);
