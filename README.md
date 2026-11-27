@@ -111,6 +111,16 @@ Headlines:
 - The plain AI reached the same ranking and gave good payment advice. Its "none are on sanctions lists" claim had no live check behind it, which it admitted when asked.
 - Telegraph's router often did not answer within 25 s. Those checks show as "not checked", never as clean.
 
+## Use case 12: live runs on 27 Nov 2026
+Two runs on the live site, using the demo buttons. All payments are Telegraph testnet credit; the purchase decision is a sandbox record and no money moved.
+
+| Demo button | Order | What the live site returned |
+|---|---|---|
+| See a purchase blocked (Rosoboronexport, a sanctioned arms exporter) | $80,000, 30% deposit | **STOP / Purchase blocked ($24,000 deposit).** Both sanctions providers flagged the name, so the agent paid nothing |
+| See a purchase authorised (Siemens Aktiengesellschaft) | $80,000, 30% deposit | **Purchase authorised ($24,000 deposit)** with a sandbox receipt. GLEIF confirmed the identity (LEI W38RGI023J3WT1HWRP32, registered as HRB 6684). Both sanctions providers cleared it and agreed. The register provider's answer was **rejected** because it gave the LEI where the registration number was asked, and it was not held against Siemens. The adverse-news provider did not answer in time, so the decision says "Not checked: adverse news" |
+
+What this does not show: no real money moved, no production network was used, and the news check did not run in the authorised run. Live providers sometimes do not answer, so a repeat run can differ; the app then holds the payment or marks the check "not checked" instead of guessing.
+
 ## What it checks
 | Check | Source | Paid? |
 |---|---|---|
