@@ -138,7 +138,7 @@ textarea.mono{font-size:14px}
   <nav aria-label="Menu">
     <a href="#check" data-go="check" style="--i:0"><b>Check supplier</b><small>Before you pay</small></a>
     <a href="#delivery" data-go="delivery" style="--i:1"><b>Check delivery</b><small>Before the balance</small></a>
-    <a href="#how" data-go="how" style="--i:2"><b>How it works</b><small>The 4 steps</small></a>
+    <a href="#how" data-go="how" style="--i:2"><b>What it does</b><small>The 5 steps</small></a>
     <a href="#saved" data-go="saved" style="--i:3"><b>Saved</b><small>Past checks</small></a>
     <a href="#what" data-go="what" style="--i:4"><b>What it checks</b><small>Full list</small></a>
     <a href="https://telegraph-supplier-detective.vercel.app/" style="--i:5"><b>Supplier.Detective</b><small>Invoices ↗</small></a>
@@ -151,21 +151,23 @@ textarea.mono{font-size:14px}
   <p class="lede">Paste an Alibaba listing or enter the details yourself. You get one recommendation, with every source and cost shown.</p>
 
   <section id="how">
-    <h2>How it works</h2>
+    <h2>What this site does</h2>
     <div class="card">
-      <p class="hint" style="margin:0 0 14px;font-size:16px">Picture an AI assistant buying for you. Before it pays, it checks the seller. After, it checks what arrived.</p>
+      <p class="hint" style="margin:0 0 14px;font-size:16px">You're about to pay a deposit to a supplier you found online. This site checks the supplier first, then checks the delivery before you pay the rest.</p>
       <ol class="flow">
-        <li><div class="n">1</div><div><b>It investigates the supplier.</b><span>It buys answers about the company from Telegraph miners.</span></div></li>
-        <li><div class="n">2</div><div><b>It checks every answer it bought.</b><span>Wrong answers are rejected, and you see why.</span></div></li>
-        <li><div class="n">3</div><div><b>It decides whether to pay.</b><span>Blocked, held, or paid.</span></div></li>
-        <li><div class="n">4</div><div><b>It checks the delivery before paying the rest.</b><span>A wrong or incomplete delivery is refused.</span></div></li>
+        <li><div class="n">1</div><div><b>Looks up the company.</b><span>It finds the company in the official register (GLEIF) and buys more answers about it from Telegraph providers.</span></div></li>
+        <li><div class="n">2</div><div><b>Screens it for sanctions.</b><span>Two separate providers check the name against the US, UN, EU and UK lists.</span></div></li>
+        <li><div class="n">3</div><div><b>Checks the answers it bought.</b><span>If an answer contradicts the official register, it is thrown out and you see why.</span></div></li>
+        <li><div class="n">4</div><div><b>Decides on the deposit.</b><span>Blocked on a serious problem, held if something could not be checked, authorised if everything passes. Test mode: no real money moves.</span></div></li>
+        <li><div class="n">5</div><div><b>Checks the delivery.</b><span>It compares what the supplier delivered with the official register. Wrong or missing details mean the balance is not paid.</span></div></li>
       </ol>
+      <div class="sub">Try a demo</div>
       <div class="demos">
         <button type="button" class="chip" id="demo-block">See a purchase blocked</button>
         <button type="button" class="chip" id="demo-pay">See a purchase authorised</button>
         <button type="button" class="chip" id="demo-deliv">See a delivery checked</button>
       </div>
-      <p class="hint">Test payments only. No real money moves.</p>
+      <p class="hint">These are demos. They use example companies and test payments, so no real money moves.</p>
     </div>
   </section>
 
