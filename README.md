@@ -104,7 +104,7 @@ Each check makes up to six paid Telegraph calls of about $0.01 each in testnet c
 ## Commercial summary
 - **Who is it for?** A small importer about to pay a deposit to a marketplace supplier they found online.
 - **What does it improve?** Instead of a dozen tabs, or an AI answer with no source, it buys identity and sanctions answers from Telegraph's specialist providers, compares them with the listing, the free GLEIF register and the buyer's invoice, and puts a dollar figure on the money at risk.
-- **What does it do today?** Five live runs on three real suppliers, $0.12 in total: four VERIFY FIRST, one STOP (labelled illustration). See [results/RESULTS.md](results/RESULTS.md).
+- **What does it do today?** It runs live on Telegraph testnet. Five live runs on three real suppliers cost $0.12 in total: four VERIFY FIRST, one STOP (labelled illustration), see [results/RESULTS.md](results/RESULTS.md). Two demo runs on 27 Nov: a sanctioned supplier's $24,000 deposit blocked, and a Siemens deposit authorised with a sandbox receipt, see "Use case 12: live runs". No real money moves.
 - **Why would someone adopt it?** A run costs cents against a deposit of thousands, and every finding can be checked without trusting the app.
 - **How can someone try it?** The live link above, or fork it and deploy with your own Anjoman key (see "Run it yourself").
 
