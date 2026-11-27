@@ -4,7 +4,7 @@ Found a supplier on a marketplace such as Alibaba.com? Check the company behind 
 
 You paste the supplier's marketplace page and enter your order. The app buys registry, sanctions, web-search and news answers from Telegraph providers, reads the free GLEIF register, compares everything in code and gives one recommendation: **STOP**, **VERIFY FIRST** or **PROCEED WITH STANDARD CARE**. Every finding names its source, every paid call shows its cost and receipt, and "not found" or "not checked" is never called clean. The report puts a dollar figure on the deposit at risk, and several suppliers can be ranked side by side for the same order.
 
-**Track:** Apps & Agents (Alibaba use case 1, Intelligent Supplier Discovery & Verification) · **Network:** Telegraph testnet · **Live:** https://supplier-buyer-check.vercel.app · **Missions:** 07 (marketplace agents verifying each other before money moves) and 08 (counterparty provenance with receipts).
+**Track:** Apps & Agents (Alibaba use case 1, Intelligent Supplier Discovery & Verification, and commercial use case 12, Verified Autonomous Procurement) · **Network:** Telegraph testnet · **Live:** https://supplier-buyer-check.vercel.app · **Missions:** 07 (marketplace agents verifying each other before money moves) and 08 (counterparty provenance with receipts).
 
 Supplier Buyer Check is a spin-off of [Supplier.Detective](https://telegraph-supplier-detective.vercel.app/), my earlier Apps & Agents entry: a Mind that checks invoices against purchase orders. Supplier Buyer Check reuses its approach to buying and cross-checking Telegraph answers (major reused component, disclosed per the rules) and moves it to an earlier moment: before a buyer pays a supplier they found on a marketplace.
 
@@ -15,7 +15,33 @@ Supplier Buyer Check is a spin-off of [Supplier.Detective](https://telegraph-sup
 
 | Run it | Check it | Inspect the payment | Break it | Reproduce it |
 |---|---|---|---|---|
-| [supplier-buyer-check.vercel.app](https://supplier-buyer-check.vercel.app): click an example or paste a listing, press **Check this supplier** | Each finding names its source; "not found" and "not checked" are never shown as clean | "Telegraph requests and receipts": intent, miner, cost, signal hash and the raw answer | Click **Invoice pays someone else** (invented company and payee): the verdict must be STOP | `npm test` (25 tests, nothing bought), or fork and deploy with your own key |
+| [supplier-buyer-check.vercel.app](https://supplier-buyer-check.vercel.app): click an example or paste a listing, press **Check this supplier** | Each finding names its source; "not found" and "not checked" are never shown as clean | "Telegraph requests and receipts": intent, miner, cost, signal hash and the raw answer | Click **Invoice pays someone else** (invented company and payee): the verdict must be STOP | `npm test` (32 tests, nothing bought), or fork and deploy with your own key |
+
+## Commercial use case 12: Verified Autonomous Procurement
+This is the use case I claimed in the Commercial Use Cases thread. The brief, in its own words:
+
+> Build an agent that independently investigates merchants, suppliers, products, pricing and contractual conditions before making an authorised payment. After the purchase, verify whether the merchant actually delivered what was agreed. Demonstrate an unsuitable purchase being prevented, an appropriate purchase being completed and the resulting deliverable being independently assessed.
+
+| The brief asks for | What this app does | See it |
+|---|---|---|
+| Independently investigates the supplier before payment | Buys register, identity, sanctions, website, web and news answers from Telegraph providers and compares them with GLEIF, the listing and the invoice | **Check supplier** |
+| Pricing and contractual conditions | Quantity, price, deposit and deadline give the money at risk; the order is compared with the supplier's claimed capacity; the invoice account holder is compared with the listing | **Check supplier** |
+| An unsuitable purchase being prevented | The agent decides **Purchase blocked** and pays nothing | Button **See a purchase blocked** (Rosoboronexport, a sanctioned arms exporter) |
+| An appropriate purchase being completed | The agent decides **Purchase authorised** and records a sandbox receipt for the deposit | Button **See a purchase authorised** (Siemens) |
+| The deliverable independently assessed | The delivered report is checked field by field against the GLEIF register by the Telegraph evaluator ([telegraph-evaluator](https://github.com/investor567768/telegraph-evaluator), Evaluators track, truth source for `TASK_EXECUTION_QUALITY_GENERAL`). A wrong or incomplete delivery is refused and the balance stays unpaid | Button **See a delivery checked**, then **Wrong facts** or **Missing fields** |
+
+Three things make the agent's decision more than one provider's word:
+- **Two sanctions opinions.** The name is screened by two providers built by different people: Telegraph `SANCTIONS_SCREENING_MATCH_GENERAL` (miner 731002) and Praman Desk's sanctions miner #6164 by antikunpiece. A match from either stops the purchase. A near miss from either, or one provider not answering, holds the payment. The supplier is only treated as clear when both agree.
+- **Every answer the agent buys is judged.** The "Answers the agent bought" table shows each answer as Accepted, Rejected, Disputed or Not checkable, with the reason. Example from the live run: the register provider gave the LEI where the registration number was asked, and GLEIF says HRB 6684. That answer is rejected and is not held against the supplier.
+- **Sandbox is separate from production.** See the table below.
+
+| Sandbox (test only) | Production |
+|---|---|
+| Telegraph runs on testnet; paid answers use test credit | Not used |
+| The purchase decision and its receipt (`SBX-...`) are test records: **no money moves** | No payment is made anywhere |
+| The delivery check reads the real GLEIF register | GLEIF is a real, public register |
+
+**Expected results, live.** Providers sometimes do not answer within 25 seconds. The agent then shows **Payment held** and says which answer is missing; it never pays on a missing answer. Press **Check this supplier** again to retry.
 
 ## Try it in two minutes
 1. Open the site, click the example **Siemens AG (Germany)**, then **Check this supplier**.
@@ -64,8 +90,10 @@ Headlines:
 | Website safety (company's own site, not the storefront; a site the provider cannot rate is shown as not checked) | Telegraph `URL_SAFE_GENERAL` | yes |
 | Evidence behind each claimed certification and export market | Telegraph `WEB_SEARCH_GENERAL` | yes |
 | Fraud, lawsuits or recalls in the news | Telegraph `NEWS_SEARCH_GENERAL` | yes |
+| Second sanctions opinion | Praman Desk sanctions miner #6164 (antikunpiece), read from its public endpoint (not bought through Telegraph, so no receipt) | free |
 | Order size vs seller size, manufacturer or trader | compared in code | free |
 | Invoice account holder and bank country vs the listing | compared in code | free |
+| The delivery (after the purchase) | Telegraph evaluator `/api/delivery-check`, compared with the GLEIF API | free |
 | Money at risk (quantity x unit price x deposit %) | computed | free |
 
 It does not check ownership, reputation or product quality.
@@ -84,10 +112,13 @@ A registry provider once returned a record for a different company. The app comp
 ## Updates
 Each update below is public and dated, so you can check when it was posted.
 
-- **27 Nov 2026:** independent test by antikunpiece (Praman Desk) recorded above, with the Viktor But sanctions gap it exposed. Next: a second sanctions opinion inside the check so one provider's "no match" can no longer clear a supplier.
+- **27 Nov 2026:** use case 12 added. A second sanctions opinion (Praman Desk miner #6164), judged answers, a purchase decision with a sandbox receipt, and the delivery check from the Evaluators entry. New menu and plainer wording on the site. Tests: 32 passing.
+- **27 Nov 2026:** independent test by antikunpiece (Praman Desk) recorded above, with the Viktor But sanctions gap it exposed. That gap is why the second sanctions opinion was added.
 - **25 Nov 2026:** the demo video and first results, posted on X (https://x.com/kingChrys494/status/2125641607001301415) and in the Telegraph Discord showcase.
 
 ## Limits
+- Praman Desk's sanctions miner is read from its public URL. It is a second opinion, not a Telegraph purchase, and its list date (`sdn_last_loaded`) is shown with the result.
+- The delivery check compares a supplier's report with the GLEIF register: legal name, LEI, registration number, jurisdiction, status and addresses. It cannot judge product quality.
 - Testnet only. Providers may not answer; the report says so and does not treat silence as clean.
 - Registry coverage for small manufacturers, especially in mainland China, is limited. A missing record means "ask for the business licence and Unified Social Credit Code", not "fraud".
 - The app checks suppliers the buyer already found. It does not discover suppliers, and it does not monitor them after the order starts.

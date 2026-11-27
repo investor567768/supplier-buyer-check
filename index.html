@@ -68,7 +68,36 @@ html{scroll-padding-top:72px}
 nav.menu{display:flex;gap:4px;overflow-x:auto}
 nav.menu a{color:var(--mute);text-decoration:none;font-size:14px;padding:6px 9px;border-radius:8px;white-space:nowrap}
 nav.menu a:hover,nav.menu a:focus-visible{color:var(--ink);background:var(--line);outline:none}
-@media(max-width:640px){header.bar .wrap{height:auto;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}nav.menu{order:3;width:100%}.brand{font-size:15px}}
+.brand{font-size:16px;white-space:nowrap}
+@media(max-width:760px){nav.menu{display:none}.brand{font-size:15px}}
+header.bar .wrap{position:relative}
+.menuBtn{appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;width:40px;height:36px;cursor:pointer;display:grid;place-items:center;padding:0}
+.menuBtn:hover,.menuBtn:focus-visible{border-color:var(--acc);outline:none}
+.ov{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;display:flex;flex-direction:column}
+.ov[hidden]{display:none}
+.ov .top{display:flex;align-items:center;gap:12px;height:58px;padding:0 20px;border-bottom:1px solid var(--line);flex:none}
+.ov .top .sp{flex:1}
+.ov nav{padding:8px 20px 40px;max-width:880px;width:100%;margin:0 auto}
+.ov nav a{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:18px 0;border-bottom:1px solid var(--line);color:var(--ink);text-decoration:none}
+.ov nav a b{font-size:clamp(26px,7vw,48px);font-weight:500;letter-spacing:-.02em;line-height:1.05}
+.ov nav a small{white-space:nowrap;font:500 12px/1.3 'Geist Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);text-align:right}
+.ov nav a:hover b,.ov nav a:focus-visible b{color:var(--acc)}
+.ov nav a:focus-visible{outline:none}
+.ov.open nav a{animation:ovin .4s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i)*45ms)}
+@keyframes ovin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.ov.open nav a{animation:none}}
+body.noscroll{overflow:hidden}
+.menuBtn.x{border-radius:50%;width:40px;height:40px}
+details.fold{background:var(--panel);border:1px solid var(--line);border-radius:14px}
+details.fold>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:14px;padding:16px 18px;font-size:22px;font-weight:600}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:"";flex:none;width:10px;height:10px;border-right:2px solid var(--mute);border-bottom:2px solid var(--mute);transform:rotate(45deg);transition:transform .25s;margin-right:4px}
+details.fold[open]>summary::after{transform:rotate(-135deg)}
+details.fold .fold-body{padding:0 18px 18px}
+.js .sr{opacity:0;transform:translateY(18px);transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.2,1);transition-delay:var(--d,0s)}
+.js .sr.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.js .sr{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
+html{scroll-behavior:smooth}
 .uc{display:inline-block;font-size:13px;color:var(--mute);border:1px solid var(--line);border-radius:99px;padding:3px 10px;margin-bottom:12px}
 .flow{list-style:none;padding:0;margin:0 0 16px;display:grid;gap:10px}
 .flow li{display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:start}
@@ -94,18 +123,31 @@ textarea.mono{font-size:14px}
 <body>
 <header class="bar"><div class="wrap">
   <div class="logo">S</div><div class="brand">Supplier Buyer Check</div><div class="sp"></div>
-  <nav class="menu" aria-label="Page"><a href="#how">How it works</a><a href="#check">Check supplier</a><a href="#delivery">Check delivery</a></nav>
+  <nav class="menu" aria-label="Page"><a href="#check">Check supplier</a><a href="#delivery">Check delivery</a><a href="#how">How it works</a></nav>
   <button class="theme" id="theme">Light</button>
+  <button class="menuBtn" id="menuBtn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="ov"><svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M1 1h16M1 7h16M1 13h16"/></svg></button>
 </div></header>
+<div class="ov" id="ov" hidden role="dialog" aria-label="Menu">
+  <div class="top"><div class="logo">S</div><div class="brand">Supplier Buyer Check</div><div class="sp"></div><button class="menuBtn x" id="menuClose" type="button" aria-label="Close menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 2l12 12M14 2L2 14"/></svg></button></div>
+  <nav aria-label="Menu">
+    <a href="#top" style="--i:0"><b>Home</b><small>Overview</small></a>
+    <a href="#check" style="--i:1"><b>Check supplier</b><small>Before you pay</small></a>
+    <a href="#delivery" style="--i:2"><b>Check delivery</b><small>Before the balance</small></a>
+    <a href="#how" style="--i:3"><b>How it works</b><small>The 4 steps</small></a>
+    <a href="#saved" style="--i:4"><b>Saved</b><small>Past checks</small></a>
+    <a href="#what" data-open="what" style="--i:5"><b>What it checks</b><small>Full list</small></a>
+    <a href="https://telegraph-supplier-detective.vercel.app/" style="--i:6"><b>Supplier.Detective</b><small>Invoices ↗</small></a>
+  </nav>
+</div>
 
-<main class="wrap">
+<main class="wrap" id="top">
   <h1>Check the supplier before you pay.</h1>
   <p class="lede">Paste an Alibaba listing or enter the details yourself. You get one recommendation, with every source and cost shown.</p>
 
   <section id="how">
-    <h2>How the agent buys safely</h2>
+    <h2>How it works</h2>
     <div class="card">
-      <div class="uc">Commercial use case 12: Verified Autonomous Procurement</div>
+      <p class="hint" style="margin:0 0 14px;font-size:16px">Picture an AI assistant buying for you. Before it pays, it checks the seller. After, it checks what arrived.</p>
       <ol class="flow">
         <li><div class="n">1</div><div><b>It investigates the supplier.</b><span>It buys answers about the company from Telegraph miners.</span></div></li>
         <li><div class="n">2</div><div><b>It checks every answer it bought.</b><span>Wrong answers are rejected, and you see why.</span></div></li>
@@ -205,13 +247,13 @@ textarea.mono{font-size:14px}
     <p class="hint">Each column is a separate check. Add another supplier with the form above, then press "Add to comparison" on its result. <a href="#" id="clear">Clear comparison</a></p></div>
   </section>
 
-  <section>
+  <section id="saved">
     <h2>Saved investigations</h2>
     <div id="runs" class="card">Loading...</div>
   </section>
 
-  <section>
-    <h2>What it checks</h2>
+  <section id="what">
+    <details class="fold" id="whatfold"><summary>What it checks</summary><div class="fold-body">
     <ol class="steps">
       <li><b>Who the company really is.</b> A national register record bought from a Telegraph provider, plus the free GLEIF register. Name, number and country are compared with the listing.</li>
       <li><b>Sanctions.</b> A paid sanctions screen. If the provider gives no answer, the check says so instead of calling the supplier clean.</li>
@@ -226,6 +268,7 @@ textarea.mono{font-size:14px}
       <li><b>The invoice.</b> Whether the account you are asked to pay belongs to the same company. A different account holder is the most common marketplace payment fraud.</li>
     </ol>
     <p class="hint">It does not check beneficial ownership or product quality. Network: Telegraph testnet.</p>
+    </div></details>
   </section>
 </main>
 
@@ -426,6 +469,27 @@ fetch('runs/index.json').then(r => r.json()).then(list => {
   $('runs').innerHTML = list.map((x, i) => `<div class="f" style="${i ? '' : 'border-top:0'}"><span class="pill s-${x.verdict.startsWith('STOP') ? 'stop' : x.verdict.startsWith('VERIFY') ? 'check' : 'ok'}">${esc(x.verdict)}</span><div><b>${esc(x.title)}</b> <a href="#" data-f="${esc(x.file)}">Open</a></div><div class="src">${esc(x.date)} · ${esc(x.summary)}</div></div>`).join('');
   $('runs').querySelectorAll('a[data-f]').forEach(a => a.onclick = e => { e.preventDefault(); fetch('runs/' + a.dataset.f).then(r => r.json()).then(render); });
 }).catch(() => { $('runs').textContent = 'The first real investigation will appear here.'; });
+
+/* menu */
+(function(){
+  const b=$('menuBtn'), o=$('ov');
+  const set=v=>{o.hidden=!v;o.classList.toggle('open',v);document.body.classList.toggle('noscroll',v);b.setAttribute('aria-expanded',String(v));if(v)$('menuClose').focus();else b.focus();};
+  b.addEventListener('click',()=>set(true));
+  $('menuClose').addEventListener('click',()=>set(false));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!o.hidden)set(false);});
+  o.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',()=>{if(a.dataset.open)$('whatfold').open=true;o.hidden=true;o.classList.remove('open');document.body.classList.remove('noscroll');}));
+})();
+
+/* scroll animation */
+(function(){
+  const no=matchMedia('(prefers-reduced-motion: reduce)').matches||!('IntersectionObserver' in window);
+  if(no)return;
+  document.documentElement.classList.add('js');
+  const els=[...document.querySelectorAll('h1,.lede,main section>h2,main section>.card,main section>details,.flow li,.demos,footer .links,footer p')];
+  els.forEach(el=>{el.classList.add('sr');const sib=[...el.parentElement.children].filter(x=>els.includes(x));el.style.setProperty('--d',Math.min(sib.indexOf(el)*0.08,0.32)+'s');});
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:0.1,rootMargin:'0px 0px -5% 0px'});
+  els.forEach(el=>io.observe(el));
+})();
 </script>
 </body>
 </html>

@@ -305,6 +305,14 @@ async function investigate(input, key) {
       add('Registration number', 'mismatch', `The listing or document gives ${s.claimed_registration}; GLEIF has ${best.registered_as} for ${best.legal_name}.`, 'GLEIF vs listing');
   }
 
+  // A registry answer that GLEIF contradicts is rejected below, and a rejected answer is not evidence about the supplier: drop any mismatch that came only from it.
+  {
+    const N = x => String(x || '').replace(/\W/g, '').toUpperCase();
+    const sameCountry = best && !(code && best.country && best.country !== code);
+    if (best && best.m >= 0.67 && sameCountry && best.registered_as && regId && (N(regId) === N(best.lei) || N(regId) !== N(best.registered_as)))
+      for (let k = findings.length - 1; k >= 0; k--) if (findings[k].area === 'Registration number' && /Telegraph registry vs listing/.test(findings[k].source || '')) findings.splice(k, 1);
+  }
+
   // 2. Sanctions
   let matched = pick(sanc.result, 'matched', 'listed', 'match');
   const sv = String(pick(sanc.result, 'verdict', 'decision', 'status') || '').toUpperCase();
@@ -450,7 +458,7 @@ async function investigate(input, key) {
   else review(reg, 'Official register record', 'accepted', `Name${regId ? ' and registration number' : ''} agree with GLEIF (${reg0.legal_name}).`, 'GLEIF');
   // A rejected register answer is not used: its finding says so, and identity rests on GLEIF instead.
   const regRv = reviews[reviews.length - 1];
-  if (regRv.decision === 'rejected') { const f = findings.find(x => x.area === 'Registered identity'); if (f && f.status === 'ok') { f.status = 'check'; f.text = `Answer rejected and not used: ${regRv.reason}`; } }
+  if (regRv.decision === 'rejected') { const f = findings.find(x => x.area === 'Registered identity'); if (f && f.status === 'ok') { f.status = 'check'; f.text = `Answer rejected and not used: ${regRv.reason}`; }  }
   // Identity
   if (unusable(idc)) review(idc, 'Who the company is', 'unusable', unusable(idc), '-');
   else if (ident && (ident.found === false || !ident.legal_name)) review(idc, 'Who the company is', reg0 ? 'rejected' : 'not_checked', reg0 ? `Said no company was found, but GLEIF has ${reg0.legal_name} (LEI ${reg0.lei}).` : 'Found nothing, and GLEIF has no record either.', 'GLEIF');

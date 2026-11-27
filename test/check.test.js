@@ -326,6 +326,14 @@ test('registry miner gives the LEI as the registration number: answer rejected a
   assert.equal(r.register.lei, 'W38RGI023J3WT1HWRP32');
 });
 
+test('a rejected registry answer is not held against the supplier: no false registration mismatch, purchase authorised', async () => {
+  mock({ registry: { legal_name: 'Siemens Aktiengesellschaft', registration_id: 'W38RGI023J3WT1HWRP32', jurisdiction: 'DE' }, sanctions: { matched: false, lists: ['OFAC SDN'] }, url: { verdict: 'clean' }, gleif: siemensGleif });
+  const r = await investigate({ supplier: 'Siemens Aktiengesellschaft', country: 'Germany', city: 'Munich', website: 'www.siemens.com', claimed_registration: 'HRB 6684', product: 'SINAMICS frequency inverters', quantity: '200', unit_price: '400', deposit_pct: '30', deadline_days: '60', claimed_monthly_capacity: '5000' }, 'k');
+  assert.equal(r.answer_reviews.find(x => x.intent === 'CORPORATE_REGISTRY_LOOKUP_GENERAL').decision, 'rejected');
+  assert.ok(!r.findings.some(f => f.area === 'Registration number'));
+  assert.equal(r.purchase.decision, 'authorised');
+});
+
 test('registry miner agrees with GLEIF: answer accepted', async () => {
   mock({ registry: { legal_name: 'Siemens Aktiengesellschaft', registration_id: 'HRB 6684', jurisdiction: 'DE' }, sanctions: { matched: false }, gleif: siemensGleif });
   const r = await investigate(siemens, 'k');
