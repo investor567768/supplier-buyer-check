@@ -26,7 +26,8 @@ You paste the supplier's marketplace page and enter your order. The app buys reg
 | After delivery: did they deliver what was agreed? | Supplier Buyer Check |
 
 
-**Demo video (2 min, on X):** https://x.com/kingChrys494/status/2125641607001301415
+**Demo video (2 min, on X, 27 Nov 2026):** https://x.com/kingChrys494/status/2126350196195971073  
+**Earlier video and first results (25 Nov 2026):** https://x.com/kingChrys494/status/2125641607001301415
 
 **Judges, start here.** No wallet, login or passcode. Anyone gets 5 free checks a day (150 a day across all visitors), paid from a testnet balance.
 
@@ -172,6 +173,7 @@ A registry provider once returned a record for a different company. The app comp
 ## Updates
 Each update below is public and dated, so you can check when it was posted.
 
+- **27 Nov 2026:** public update and demo video on X (https://x.com/kingChrys494/status/2126350196195971073): the purchase verdict, two sanctions sources, rejected wrong answers, the delivery check and the plainer site, with the blocked and authorised demos on screen.
 - **27 Nov 2026:** use case 12 added. A second sanctions opinion (Praman Desk miner #6164), judged answers, a purchase decision with a sandbox receipt, and the delivery check from the Evaluators entry. New menu and plainer wording on the site. Tests: 33 passing.
 - **27 Nov 2026:** independent test by antikunpiece (Praman Desk) recorded above, with the Viktor But sanctions gap it exposed. That gap is why the second sanctions opinion was added.
 - **25 Nov 2026:** the demo video and first results, posted on X (https://x.com/kingChrys494/status/2125641607001301415) and in the Telegraph Discord showcase.
