@@ -6,7 +6,24 @@ You paste the supplier's marketplace page and enter your order. The app buys reg
 
 **Track:** Apps & Agents (Alibaba use case 1, Intelligent Supplier Discovery & Verification, and commercial use case 12, Verified Autonomous Procurement) · **Network:** Telegraph testnet · **Live:** https://supplier-buyer-check.vercel.app · **Missions:** 07 (marketplace agents verifying each other before money moves) and 08 (counterparty provenance with receipts).
 
-Supplier Buyer Check is a spin-off of [Supplier.Detective](https://telegraph-supplier-detective.vercel.app/), my earlier Apps & Agents entry: a Mind that checks invoices against purchase orders. Supplier Buyer Check reuses its approach to buying and cross-checking Telegraph answers (major reused component, disclosed per the rules) and moves it to an earlier moment: before a buyer pays a supplier they found on a marketplace.
+## What we built
+
+**The problem.** Small businesses that buy from marketplace suppliers often pay a deposit to a company they have never checked. If the supplier is fake, sanctioned, or sends an invoice with someone else's bank details, the deposit is gone. Checking by hand means opening registers, sanctions lists and news sites one by one, so most buyers skip it.
+
+**What it does.** Supplier Buyer Check is an AI buyer. Before any money moves, it investigates the supplier: it buys answers from Telegraph providers, reads the free GLEIF register, and judges every answer itself (accepting or rejecting it, and saying why). It then blocks the purchase, holds it for a human, or authorises it. After the goods arrive, it checks the delivery before the balance is paid. Every answer shows its source, cost and receipt.
+
+**Who it is for.**
+- Small importers and online sellers who buy from suppliers they found on Alibaba.com or similar marketplaces.
+- Procurement and finance staff who need a recorded reason for every payment.
+- Developers building agents that spend money and need a worked example of a purchase that is checked, not trusted.
+
+**How it fits with Supplier.Detective.** The two apps cover one purchase from start to finish. [Supplier.Detective](https://telegraph-supplier-detective.vercel.app/) checks an invoice against the purchase order once the supplier has sent one. Supplier Buyer Check works earlier, before the buyer has chosen to pay, and again at delivery. Supplier Buyer Check reuses Supplier.Detective's method of buying and cross-checking Telegraph answers (a major reused component, disclosed per the rules). The two are separate submissions and stay separate code, but a buyer uses them as one flow: check the supplier, pay the deposit, check the invoice, check the delivery.
+
+| Moment in the purchase | App |
+|---|---|
+| Before paying: who is this supplier? | Supplier Buyer Check |
+| The supplier sends an invoice | Supplier.Detective |
+| After delivery: did they deliver what was agreed? | Supplier Buyer Check |
 
 
 **Demo video (2 min, on X):** https://x.com/kingChrys494/status/2125641607001301415
@@ -75,8 +92,8 @@ Three things make the agent's decision more than one provider's word:
 **Which checks decide the payment.** Identity (GLEIF and the registry), both sanctions opinions, the invoice account holder and the order against the supplier's capacity decide it. If one of those does not answer, the agent shows **Payment held** and never pays on a missing answer. The adverse-news search advises but does not decide: Telegraph's router often does not answer it within 25 seconds, and the news evidence can never prove a supplier clean anyway. If it does not answer, the decision says "Not checked: adverse news" and the check is never shown as clean. Press **Check this supplier** again to retry any answer that timed out.
 
 ## Try it in two minutes
-1. Open the site, click the example **Siemens AG (Germany)**, then **Check this supplier**.
-   Expected: identity confirmed from the register and from GLEIF (Siemens Aktiengesellschaft, LEI W38RGI023J3WT1HWRP32); anything a provider could not answer shows as "not checked", so the verdict may still be VERIFY FIRST.
+1. Open the site, click **See a purchase authorised**, then **Check this supplier**.
+   Expected: **Purchase authorised** (Siemens AG, identity confirmed from the register and GLEIF, LEI W38RGI023J3WT1HWRP32) with a sandbox receipt. If a provider is slow, you may see "Payment held" instead; anything a provider could not answer shows as "not checked", never as clean.
 2. Click **Invoice pays someone else** (invented company and payee) and run it.
    Expected: **STOP**, with a "Payment beneficiary" finding, and the money at risk (30% of the order) named.
 3. Failure case: clear the invoice fields and run the invented company alone.
@@ -140,7 +157,9 @@ What this does not show: no real money moved, no production network was used, an
 It does not check ownership, reputation or product quality.
 
 ## How it uses Telegraph
-The server calls `POST https://backend.telegraphprotocol.com/engine/ask` (router) and `/engine/ask/{minerId}` (direct) with an Anjoman API key. Identity and sanctions go straight to the named specialist miners; registry, web search and news go through the router. Each call has a 25 s timeout and is not retried after a timeout. The response's miner, cost, signal hash and receipts are kept in the report. See [api/check.js](api/check.js).
+**Why Telegraph.** A supplier check is only worth trusting if you can see who said what. Telegraph lets the agent buy each answer from a different independent provider, pay per answer, and keep a receipt (provider, cost, signal hash) for every one. That makes two things possible that a single data API can't offer: a second provider's opinion on sanctions, and rejecting a wrong answer openly instead of hiding it. The agent buys these answers by itself, with no accounts or contracts set up in advance, which is the autonomous purchase this track asks for.
+
+**How.** The server calls `POST https://backend.telegraphprotocol.com/engine/ask` (router) and `/engine/ask/{minerId}` (direct) with an Anjoman API key. Identity and sanctions go straight to the named specialist miners; registry, web search and news go through the router. Each call has a 25 s timeout and is not retried after a timeout. The response's miner, cost, signal hash and receipts are kept in the report. See [api/check.js](api/check.js).
 
 A registry provider once returned a record for a different company. The app compares names and treats a mismatch as a provider error, never as evidence against the supplier.
 
