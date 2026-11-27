@@ -15,7 +15,38 @@ Supplier Buyer Check is a spin-off of [Supplier.Detective](https://telegraph-sup
 
 | Run it | Check it | Inspect the payment | Break it | Reproduce it |
 |---|---|---|---|---|
-| [supplier-buyer-check.vercel.app](https://supplier-buyer-check.vercel.app): click an example or paste a listing, press **Check this supplier** | Each finding names its source; "not found" and "not checked" are never shown as clean | "Telegraph requests and receipts": intent, miner, cost, signal hash and the raw answer | Click **Invoice pays someone else** (invented company and payee): the verdict must be STOP | `npm test` (32 tests, nothing bought), or fork and deploy with your own key |
+| [supplier-buyer-check.vercel.app](https://supplier-buyer-check.vercel.app): click an example or paste a listing, press **Check this supplier** | Each finding names its source; "not found" and "not checked" are never shown as clean | "Telegraph requests and receipts": intent, miner, cost, signal hash and the raw answer | Click **Invoice pays someone else** (invented company and payee): the verdict must be STOP | `npm test` (33 tests, nothing bought), or fork and deploy with your own key |
+
+## Where to look for each criterion
+Wording is the organisers' (Season II rules, Sections 5 and 6, Apps & Agents). Every row points to something you can open or run.
+
+**What every entry must do (Section 5)**
+| Requirement | Where to see it |
+|---|---|
+| Something working | Live site: https://supplier-buyer-check.vercel.app (no wallet, login or passcode) |
+| A real Telegraph integration | Every supplier check makes up to six paid requests to `POST https://backend.telegraphprotocol.com/engine/ask`. Each result lists them under "Telegraph requests and receipts": intent, miner, cost, signal hash and the raw answer |
+| Repeatable results | "Try it in two minutes" below; new inputs and failure cases are on the site as buttons and in `npm test` |
+| Safe handling | The Telegraph key stays on the server and never reaches the browser. Spending limits: 5 checks per visitor and 150 in total per day. A missing answer is shown as "not checked", never as clean. No private data is stored beyond the saved results shown on the site |
+| Accurate claims | Network: **Telegraph testnet only**. Payments are test credit. The purchase decision's receipt (`SBX-...`) is a sandbox record: no money moves. Nothing here is production-verified, and no paying customer is claimed. See "What's real and what's illustrated" |
+| Star the bounties repo | Done from the submitting GitHub account; the username is in the submission form |
+
+**Missions, and the result that counts for each**
+| Mission | Its own testable result |
+|---|---|
+| 07 Consumer Platform (marketplace agents verifying each other before money changes hands) | Run **Check supplier** on a marketplace supplier (for example the Alibaba examples). The result is blocked, held or authorised, and the supplier's identity, sanctions and invoice are checked before any deposit |
+| 08 Commodities (counterparty provenance, with a receipt for each check) | Open **Telegraph requests and receipts** on any result: each paid check lists its intent, miner, cost, signal hash and raw answer |
+
+**Apps & Agents requirement.** "At least one genuinely autonomous machine-to-machine purchase": the server buys each answer by itself through the supported Telegraph flow, with no human in the loop, then uses the answers to decide **blocked, held or authorised**. The result page shows each purchase and its receipt.
+
+**How it is scored (Section 6)**
+| Criterion (points) | Where to look |
+|---|---|
+| Technical quality and mainnet readiness (35) | [api/check.js](api/check.js) and `npm test` (33 tests, no network, nothing bought). Every answer the agent buys is judged against GLEIF and shown as accepted or rejected with the reason. Two independent sanctions providers must agree. Timeouts are never treated as clean. Mainnet: not yet; the app runs on testnet and does not claim otherwise |
+| Commercial viability (25) | "Commercial summary" below: a named user, the cost of a check against the deposit at risk, and what it does today ([results/RESULTS.md](results/RESULTS.md)) |
+| Genuine independent adoption and retention (10) | "Independent testing (26 Nov 2026)" below: one independent builder ran live tests and found a real gap that led to a fix. It was a mutual test and is disclosed as one. No paying or repeat customers are claimed |
+| Telegraph network integration and usage quality (5) | "What it checks" and "How it uses Telegraph" below: intents `CORPORATE_REGISTRY_LOOKUP_GENERAL`, `SANCTIONS_SCREENING_MATCH_GENERAL`, `URL_SAFE_GENERAL`, `WEB_SEARCH_GENERAL`, `NEWS_SEARCH_GENERAL` and identity enrichment, with direct calls to named miners and routed calls. The delivery check uses the Evaluators entry's truth source for `TASK_EXECUTION_QUALITY_GENERAL` |
+| Reproducibility, demo/tutorial, and verifiable proof (5) | Demo video (above), "Try it in two minutes", "Run it yourself", the raw receipts on every result, and [results/RESULTS.md](results/RESULTS.md) |
+| Organic growth, education, and developer activation (20) | "Updates" below: dated public updates, the independent test and the fix it led to. Anyone can try the app, run the tests, or call the second sanctions miner's public endpoint and report what they find |
 
 ## Commercial use case 12: Verified Autonomous Procurement
 This is the use case I claimed in the Commercial Use Cases thread. The brief, in its own words:
@@ -41,7 +72,7 @@ Three things make the agent's decision more than one provider's word:
 | The purchase decision and its receipt (`SBX-...`) are test records: **no money moves** | No payment is made anywhere |
 | The delivery check reads the real GLEIF register | GLEIF is a real, public register |
 
-**Expected results, live.** Providers sometimes do not answer within 25 seconds. The agent then shows **Payment held** and says which answer is missing; it never pays on a missing answer. Press **Check this supplier** again to retry.
+**Which checks decide the payment.** Identity (GLEIF and the registry), both sanctions opinions, the invoice account holder and the order against the supplier's capacity decide it. If one of those does not answer, the agent shows **Payment held** and never pays on a missing answer. The adverse-news search advises but does not decide: Telegraph's router often does not answer it within 25 seconds, and the news evidence can never prove a supplier clean anyway. If it does not answer, the decision says "Not checked: adverse news" and the check is never shown as clean. Press **Check this supplier** again to retry any answer that timed out.
 
 ## Try it in two minutes
 1. Open the site, click the example **Siemens AG (Germany)**, then **Check this supplier**.
@@ -112,7 +143,7 @@ A registry provider once returned a record for a different company. The app comp
 ## Updates
 Each update below is public and dated, so you can check when it was posted.
 
-- **27 Nov 2026:** use case 12 added. A second sanctions opinion (Praman Desk miner #6164), judged answers, a purchase decision with a sandbox receipt, and the delivery check from the Evaluators entry. New menu and plainer wording on the site. Tests: 32 passing.
+- **27 Nov 2026:** use case 12 added. A second sanctions opinion (Praman Desk miner #6164), judged answers, a purchase decision with a sandbox receipt, and the delivery check from the Evaluators entry. New menu and plainer wording on the site. Tests: 33 passing.
 - **27 Nov 2026:** independent test by antikunpiece (Praman Desk) recorded above, with the Viktor But sanctions gap it exposed. That gap is why the second sanctions opinion was added.
 - **25 Nov 2026:** the demo video and first results, posted on X (https://x.com/kingChrys494/status/2125641607001301415) and in the Telegraph Discord showcase.
 

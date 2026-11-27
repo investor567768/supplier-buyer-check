@@ -88,6 +88,13 @@ header.bar .wrap{position:relative}
 @media(prefers-reduced-motion:reduce){.ov.open nav a{animation:none}}
 body.noscroll{overflow:hidden}
 .menuBtn.x{border-radius:50%;width:40px;height:40px}
+.tiles{display:grid;gap:12px;margin:8px 0 40px}
+.tile{display:block;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 22px 20px;text-decoration:none;color:var(--ink);transition:border-color .2s,transform .2s}
+.tile:hover,.tile:focus-visible{border-color:var(--acc);outline:none;transform:translateY(-2px)}
+.tile b{display:block;font-size:clamp(24px,5vw,32px);font-weight:500;letter-spacing:-.02em;line-height:1.1}
+.tile span{display:block;margin-top:6px;color:var(--mute);font-size:16px}
+[data-view][hidden]{display:none}
+.brand{cursor:pointer}
 details.fold{background:var(--panel);border:1px solid var(--line);border-radius:14px}
 details.fold>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:14px;padding:16px 18px;font-size:22px;font-weight:600}
 details.fold>summary::-webkit-details-marker{display:none}
@@ -123,27 +130,35 @@ textarea.mono{font-size:14px}
 <body>
 <header class="bar"><div class="wrap">
   <div class="logo">S</div><div class="brand">Supplier Buyer Check</div><div class="sp"></div>
-  <nav class="menu" aria-label="Page"><a href="#check">Check supplier</a><a href="#delivery">Check delivery</a><a href="#how">How it works</a></nav>
   <button class="theme" id="theme">Light</button>
   <button class="menuBtn" id="menuBtn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="ov"><svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M1 1h16M1 7h16M1 13h16"/></svg></button>
 </div></header>
 <div class="ov" id="ov" hidden role="dialog" aria-label="Menu">
   <div class="top"><div class="logo">S</div><div class="brand">Supplier Buyer Check</div><div class="sp"></div><button class="menuBtn x" id="menuClose" type="button" aria-label="Close menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 2l12 12M14 2L2 14"/></svg></button></div>
   <nav aria-label="Menu">
-    <a href="#top" style="--i:0"><b>Home</b><small>Overview</small></a>
-    <a href="#check" style="--i:1"><b>Check supplier</b><small>Before you pay</small></a>
-    <a href="#delivery" style="--i:2"><b>Check delivery</b><small>Before the balance</small></a>
-    <a href="#how" style="--i:3"><b>How it works</b><small>The 4 steps</small></a>
-    <a href="#saved" style="--i:4"><b>Saved</b><small>Past checks</small></a>
-    <a href="#what" data-open="what" style="--i:5"><b>What it checks</b><small>Full list</small></a>
+    <a href="#home" data-go="home" style="--i:0"><b>Home</b><small>Overview</small></a>
+    <a href="#check" data-go="check" style="--i:1"><b>Check supplier</b><small>Before you pay</small></a>
+    <a href="#delivery" data-go="delivery" style="--i:2"><b>Check delivery</b><small>Before the balance</small></a>
+    <a href="#how" data-go="how" style="--i:3"><b>How it works</b><small>The 4 steps</small></a>
+    <a href="#saved" data-go="saved" style="--i:4"><b>Saved</b><small>Past checks</small></a>
+    <a href="#what" data-go="what" style="--i:5"><b>What it checks</b><small>Full list</small></a>
     <a href="https://telegraph-supplier-detective.vercel.app/" style="--i:6"><b>Supplier.Detective</b><small>Invoices ↗</small></a>
   </nav>
 </div>
 
 <main class="wrap" id="top">
+<div id="v-home" data-view>
   <h1>Check the supplier before you pay.</h1>
   <p class="lede">Paste an Alibaba listing or enter the details yourself. You get one recommendation, with every source and cost shown.</p>
 
+  <div class="tiles">
+    <a class="tile" href="#check" data-go="check"><b>Check a supplier</b><span>Register, sanctions, website and invoice, before you pay.</span></a>
+    <a class="tile" href="#delivery" data-go="delivery"><b>Check a delivery</b><span>Is what arrived what was ordered?</span></a>
+    <a class="tile" href="#how" data-go="how"><b>How it works</b><span>An AI buyer that checks before it pays, and after.</span></a>
+  </div>
+</div>
+
+<div id="v-how" data-view hidden>
   <section id="how">
     <h2>How it works</h2>
     <div class="card">
@@ -163,6 +178,9 @@ textarea.mono{font-size:14px}
     </div>
   </section>
 
+</div>
+
+<div id="v-check" data-view hidden>
   <section id="check">
     <h2>Check a supplier</h2>
     <form class="card" id="form">
@@ -213,6 +231,15 @@ textarea.mono{font-size:14px}
 
   <section id="out" hidden></section>
 
+  <section id="cmp" hidden>
+    <h2>Compare suppliers for the same order</h2>
+    <div class="card" style="overflow-x:auto"><table id="cmpt"></table>
+    <p class="hint">Each column is a separate check. Add another supplier with the form above, then press "Add to comparison" on its result. <a href="#" id="clear">Clear comparison</a></p></div>
+  </section>
+
+</div>
+
+<div id="v-delivery" data-view hidden>
   <section id="delivery">
     <h2>Check a delivery before paying the rest</h2>
     <form class="card" id="dform">
@@ -241,19 +268,19 @@ textarea.mono{font-size:14px}
     </form>
   </section>
 
-  <section id="cmp" hidden>
-    <h2>Compare suppliers for the same order</h2>
-    <div class="card" style="overflow-x:auto"><table id="cmpt"></table>
-    <p class="hint">Each column is a separate check. Add another supplier with the form above, then press "Add to comparison" on its result. <a href="#" id="clear">Clear comparison</a></p></div>
-  </section>
+</div>
 
+<div id="v-saved" data-view hidden>
   <section id="saved">
     <h2>Saved investigations</h2>
     <div id="runs" class="card">Loading...</div>
   </section>
 
+</div>
+
+<div id="v-what" data-view hidden>
   <section id="what">
-    <details class="fold" id="whatfold"><summary>What it checks</summary><div class="fold-body">
+    <details class="fold" id="whatfold" open><summary>What it checks</summary><div class="fold-body">
     <ol class="steps">
       <li><b>Who the company really is.</b> A national register record bought from a Telegraph provider, plus the free GLEIF register. Name, number and country are compared with the listing.</li>
       <li><b>Sanctions.</b> A paid sanctions screen. If the provider gives no answer, the check says so instead of calling the supplier clean.</li>
@@ -270,6 +297,7 @@ textarea.mono{font-size:14px}
     <p class="hint">It does not check beneficial ownership or product quality. Network: Telegraph testnet.</p>
     </div></details>
   </section>
+</div>
 </main>
 
 <footer><div class="wrap">
@@ -315,7 +343,7 @@ function render(r) {
   }
   h += `</table><p class="hint">Total paid: $${r.total_cost_usd} on ${esc(r.network)}. Checked ${esc(r.checked_at)}.</p><button class="run" id="addcmp" type="button">Add to comparison</button></div>`;
   $('out').innerHTML = h; $('out').hidden = false; $('out').scrollIntoView({ behavior: 'smooth' });
-  if ($('todeliv')) $('todeliv').onclick = () => { $('d-co').value = (r.register && (r.register.lei || r.register.legal_name)) || r.input.supplier; $('delivery').scrollIntoView({ behavior: 'smooth' }); $('d-rep').focus({ preventScroll: true }); };
+  if ($('todeliv')) $('todeliv').onclick = () => { $('d-co').value = (r.register && (r.register.lei || r.register.legal_name)) || r.input.supplier; go('delivery'); $('d-rep').focus({ preventScroll: true }); };
   $('addcmp').onclick = () => { if (!compared.some(c => c.checked_at === r.checked_at)) compared.push(r); drawCmp(); $('cmp').scrollIntoView({ behavior: 'smooth' }); };
 }
 
@@ -424,9 +452,9 @@ $('form').onsubmit = async e => {
 };
 
 // ---------- #12 demos ----------
-$('demo-block').onclick = () => { fill({ ...EXAMPLES[3], product: 'Industrial control units', quantity: '200', unit_price: '400', deposit_pct: '30', deadline_days: '60' }); $('check').scrollIntoView({ behavior: 'smooth' }); };
-$('demo-pay').onclick = () => { fill({ supplier: 'Siemens Aktiengesellschaft', country: 'Germany', city: 'Munich', website: 'www.siemens.com', claimed_registration: 'HRB 6684', product: 'SINAMICS frequency inverters', quantity: '200', unit_price: '400', deposit_pct: '30', deadline_days: '60', claimed_monthly_capacity: '5000' }); $('check').scrollIntoView({ behavior: 'smooth' }); };
-$('demo-deliv').onclick = () => { loadDelivery('good'); $('delivery').scrollIntoView({ behavior: 'smooth' }); };
+$('demo-block').onclick = () => { go('check'); fill({ ...EXAMPLES[3], product: 'Industrial control units', quantity: '200', unit_price: '400', deposit_pct: '30', deadline_days: '60' }); $('check').scrollIntoView({ behavior: 'smooth' }); };
+$('demo-pay').onclick = () => { go('check'); fill({ supplier: 'Siemens Aktiengesellschaft', country: 'Germany', city: 'Munich', website: 'www.siemens.com', claimed_registration: 'HRB 6684', product: 'SINAMICS frequency inverters', quantity: '200', unit_price: '400', deposit_pct: '30', deadline_days: '60', claimed_monthly_capacity: '5000' }); $('check').scrollIntoView({ behavior: 'smooth' }); };
+$('demo-deliv').onclick = () => { go('delivery'); loadDelivery('good'); };
 
 // ---------- Delivery check (Telegraph Evaluator) ----------
 const DELIVERY_URL = 'https://telegraph-evaluator.vercel.app/api/delivery-check';
@@ -470,6 +498,24 @@ fetch('runs/index.json').then(r => r.json()).then(list => {
   $('runs').querySelectorAll('a[data-f]').forEach(a => a.onclick = e => { e.preventDefault(); fetch('runs/' + a.dataset.f).then(r => r.json()).then(render); });
 }).catch(() => { $('runs').textContent = 'The first real investigation will appear here.'; });
 
+
+/* pages */
+const VIEWS = ['home', 'check', 'delivery', 'how', 'saved', 'what'];
+function hashView() { const h = location.hash.replace(/^#\/?/, ''); return VIEWS.includes(h) ? h : 'home'; }
+function go(v, push = true) {
+  if (!VIEWS.includes(v)) v = 'home';
+  VIEWS.forEach(n => { $('v-' + n).hidden = n !== v; });
+  if (push && hashView() !== v) history.pushState(null, '', v === 'home' ? location.pathname : '#' + v);
+  window.scrollTo(0, 0);
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[data-go]');
+  if (a) { e.preventDefault(); go(a.dataset.go); }
+});
+window.addEventListener('popstate', () => go(hashView(), false));
+document.querySelectorAll('header.bar .logo, header.bar .brand').forEach(el => { el.style.cursor = 'pointer'; el.addEventListener('click', () => { location.href = location.pathname; }); });
+go(hashView(), false);
+
 /* menu */
 (function(){
   const b=$('menuBtn'), o=$('ov');
@@ -477,7 +523,7 @@ fetch('runs/index.json').then(r => r.json()).then(list => {
   b.addEventListener('click',()=>set(true));
   $('menuClose').addEventListener('click',()=>set(false));
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!o.hidden)set(false);});
-  o.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',()=>{if(a.dataset.open)$('whatfold').open=true;o.hidden=true;o.classList.remove('open');document.body.classList.remove('noscroll');}));
+  o.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',()=>{o.hidden=true;o.classList.remove('open');document.body.classList.remove('noscroll');}));
 })();
 
 /* scroll animation */

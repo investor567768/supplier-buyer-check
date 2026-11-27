@@ -423,7 +423,7 @@ async function investigate(input, key) {
   const identityConfirmed = findings.some(f => (f.area === 'Registered identity' || f.area === 'Legal Entity Identifier') && f.status === 'ok');
   let verdict, why;
   if (has('stop')) { verdict = 'STOP'; why = 'At least one check found a serious problem. Resolve it before paying anything.'; }
-  else if (has('mismatch') || !identityConfirmed || findings.some(f => f.status === 'unverified' && f.area !== 'Website safety') || sancText || findings.some(f => /^Sanctions/.test(f.area) && f.status === 'check')) { verdict = 'VERIFY FIRST'; why = identityConfirmed ? 'Some details disagree or could not be checked.' : 'The company behind the listing could not be confirmed from an independent register. Ask for the business licence and check it before paying, and use the marketplace\'s payment protection.'; }
+  else if (has('mismatch') || !identityConfirmed || findings.some(f => f.status === 'unverified' && f.area !== 'Website safety' && f.area !== 'Disputes and adverse news') || sancText || findings.some(f => /^Sanctions/.test(f.area) && f.status === 'check')) { verdict = 'VERIFY FIRST'; why = identityConfirmed ? 'Some details disagree or could not be checked.' : 'The company behind the listing could not be confirmed from an independent register. Ask for the business licence and check it before paying, and use the marketplace\'s payment protection.'; }
   else { verdict = 'PROCEED WITH STANDARD CARE'; why = 'Identity confirmed from an independent register, no sanctions match, no red flags in the documents checked. This is not a guarantee of product quality.'; }
 
   const calls = [idc, reg, sanc, web, ws, news].filter(Boolean);
@@ -433,7 +433,8 @@ async function investigate(input, key) {
   let money = null;
   if (s.quantity && s.unit_price) {
     const value = s.quantity * s.unit_price, deposit = value * Math.min(s.deposit_pct, 100) / 100;
-    const blocking = findings.filter(f => f.status === 'stop' || f.status === 'mismatch').map(f => f.area);
+    const areasOf = fs => [...new Set(fs.map(f => /^Sanctions/.test(f.area) ? 'Sanctions' : f.area))];
+    const blocking = areasOf(findings.filter(f => f.status === 'stop' || f.status === 'mismatch'));
     money = { order_value: value, deposit_pct: s.deposit_pct, deposit_at_risk: deposit,
       summary: verdict === 'STOP'
         ? `Order value ${usd(value)}. Paying now would put the ${s.deposit_pct}% deposit, ${usd(deposit)}, at risk, and the full ${usd(value)} if paid in full. This check stops that payment because of: ${blocking.join(', ')}.`
@@ -480,12 +481,13 @@ async function investigate(input, key) {
 
   // The agent's purchase decision (#12). Sandbox: no money moves.
   const amount = money ? Math.round(money.deposit_at_risk * 100) / 100 : null;
+  const newsMissing = findings.some(f => f.area === 'Disputes and adverse news' && f.status === 'unverified');
   let purchase;
-  if (verdict === 'STOP') purchase = { decision: 'blocked', title: 'Purchase blocked', amount_usd: amount, reason: `The agent will not pay: ${findings.filter(f => f.status === 'stop').map(f => f.area).join(', ') || why}.` };
+  if (verdict === 'STOP') purchase = { decision: 'blocked', title: 'Purchase blocked', amount_usd: amount, reason: `The agent will not pay: ${[...new Set(findings.filter(f => f.status === 'stop').map(f => /^Sanctions/.test(f.area) ? 'Sanctions' : f.area))].join(', ') || why}.` };
   else if (verdict.startsWith('VERIFY')) purchase = { decision: 'held', title: 'Payment held', amount_usd: amount, reason: 'The agent will not pay until the open points are answered. Nothing is lost by waiting.' };
   else {
     let h = 0; for (const ch of `${s.supplier}|${amount}|${Date.now()}`) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-    purchase = { decision: 'authorised', title: 'Purchase authorised', amount_usd: amount, reason: 'Every check that decides payment passed. The agent authorises the deposit; the balance waits for the delivery check.',
+    purchase = { decision: 'authorised', title: 'Purchase authorised', amount_usd: amount, reason: 'Every check that decides payment passed. The agent authorises the deposit; the balance waits for the delivery check.' + (newsMissing ? ' Not checked: adverse news (the provider did not answer in time). That check advises; it does not decide payment.' : ''),
       receipt: { id: 'SBX-' + h.toString(16).toUpperCase().padStart(8, '0'), created_at: new Date().toISOString() } };
   }
   purchase.mode = 'sandbox: a test decision, no money moves';

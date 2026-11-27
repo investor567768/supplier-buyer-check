@@ -334,6 +334,14 @@ test('a rejected registry answer is not held against the supplier: no false regi
   assert.equal(r.purchase.decision, 'authorised');
 });
 
+test('adverse-news search gives no answer: it advises, it does not block; the decision says it was not checked', async () => {
+  mock({ registry: { legal_name: 'Shenzhen Example Power Technology Co., Ltd.', registration_id: '91440300XXXX', active: true, jurisdiction: 'CN' }, sanctions: { matched: false, lists: ['OFAC SDN'] }, url: { verdict: 'clean' }, fail: { NEWS_SEARCH_GENERAL: true } });
+  const r = await investigate({ ...base, quantity: '1000', unit_price: '10', deposit_pct: '30', claimed_monthly_capacity: '5000', deadline_days: '60' }, 'k');
+  assert.equal(r.findings.find(f => f.area === 'Disputes and adverse news').status, 'unverified');
+  assert.equal(r.purchase.decision, 'authorised');
+  assert.match(r.purchase.reason, /Not checked: adverse news/);
+});
+
 test('registry miner agrees with GLEIF: answer accepted', async () => {
   mock({ registry: { legal_name: 'Siemens Aktiengesellschaft', registration_id: 'HRB 6684', jurisdiction: 'DE' }, sanctions: { matched: false }, gleif: siemensGleif });
   const r = await investigate(siemens, 'k');
@@ -364,5 +372,6 @@ test('second provider reports a match: STOP and purchase blocked', async () => {
   const r = await investigate({ ...base, quantity: '10', unit_price: '10' }, 'k');
   assert.equal(r.verdict, 'STOP');
   assert.equal(r.purchase.decision, 'blocked');
-  assert.match(r.purchase.reason, /Sanctions, second opinion/);
+  assert.match(r.purchase.reason, /Sanctions/);
+  assert.doesNotMatch(r.purchase.reason, /Sanctions, Sanctions/);
 });
