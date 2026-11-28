@@ -101,6 +101,21 @@ details.fold>summary::-webkit-details-marker{display:none}
 details.fold>summary::after{content:"";flex:none;width:10px;height:10px;border-right:2px solid var(--mute);border-bottom:2px solid var(--mute);transform:rotate(45deg);transition:transform .25s;margin-right:4px}
 details.fold[open]>summary::after{transform:rotate(-135deg)}
 details.fold .fold-body{padding:0 18px 18px}
+.grid.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:640px){.grid.g4{grid-template-columns:1fr 1fr}}
+details.more{border-top:1px solid var(--line);margin-top:12px;padding-top:10px}
+details.more>summary{cursor:pointer;list-style:none;font-weight:600;font-size:15px;display:flex;align-items:center;gap:9px}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::before{content:"";flex:none;width:7px;height:7px;border-right:2px solid var(--mute);border-bottom:2px solid var(--mute);transform:rotate(-45deg);transition:transform .2s}
+details.more[open]>summary::before{transform:rotate(45deg)}
+details.more>summary:focus-visible{outline:2px solid var(--acc);outline-offset:3px;border-radius:4px}
+.more-body{padding:4px 0 2px}
+.actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.actions .run{width:auto;flex:1;margin-top:0;min-width:180px}
+.actions .chip{border-radius:10px;padding:0 18px;min-height:46px}
+ul.why{list-style:none;margin:0 0 8px;padding:0}
+ul.why li{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:8px 0;border-top:1px solid var(--line);align-items:baseline}
+@media(prefers-reduced-motion:reduce){details.more>summary::before{transition:none}}
 .js .sr{opacity:0;transform:translateY(18px);transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.2,1);transition-delay:var(--d,0s)}
 .js .sr.in{opacity:1;transform:none}
 @media(prefers-reduced-motion:reduce){.js .sr{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
@@ -175,48 +190,53 @@ textarea.mono{font-size:14px}
   <section id="check">
     <h2>Check a supplier</h2>
     <form class="card" id="form">
-      <div class="sub">Fill it in for me</div>
-      <label for="paste">Copy the seller's Alibaba page (Ctrl + A, Ctrl + C) and paste it here</label>
-      <textarea id="paste" rows="3" placeholder="Paste the listing or company profile text. Name, location, years, certifications, capacity and markets are filled in for you."></textarea>
-      <div class="hint" id="pastemsg"></div>
-      <div class="sub">Or try an example</div>
-      <div id="examples" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px"></div>
-      <div class="sub">Your order</div>
-      <div class="grid">
-        <div class="full"><label for="product">Product and specification</label><input id="product" placeholder="e.g. 7.5 kW 3-phase frequency inverter, 380 V"></div>
-        <div><label for="quantity">Quantity</label><input id="quantity" inputmode="numeric" placeholder="e.g. 10,000"></div>
-        <div><label for="deadline_days">Needed within (days)</label><input id="deadline_days" inputmode="numeric" placeholder="e.g. 60"></div>
-        <div><label for="unit_price">Unit price in US dollars</label><input id="unit_price" inputmode="decimal" placeholder="e.g. 180"></div>
-        <div><label for="deposit_pct">Deposit asked upfront (%)</label><input id="deposit_pct" inputmode="numeric" placeholder="e.g. 30"></div>
-      </div>
-      <div class="sub">From the listing</div>
-      <div class="grid">
+      <div class="grid g4">
         <div class="full" style="position:relative"><label for="supplier">Company name, exactly as listed</label><input id="supplier" required autocomplete="off" placeholder="Start typing, e.g. Zhejiang Lefoo"><div id="sugg" class="card" style="display:none;position:absolute;left:0;right:0;z-index:4;padding:6px;margin-top:4px"></div></div>
         <div><label for="country">Country</label><input id="country" required placeholder="e.g. China"></div>
-        <div><label for="city">City</label><input id="city" placeholder="e.g. Shenzhen"></div>
-        <div class="full"><label for="website">Company website, if the listing gives one</label><input id="website" placeholder="www.example.com"></div>
-        <div class="full"><label for="listing_url">Listing link</label><input id="listing_url" placeholder="https://www.alibaba.com/product-detail/..."></div>
-        <div class="full"><label for="claimed_registration">Registration or licence number, if shown</label><input id="claimed_registration" placeholder="optional"></div>
+        <div><label for="quantity">Quantity</label><input id="quantity" inputmode="numeric" placeholder="e.g. 200"></div>
+        <div><label for="unit_price">Unit price (US dollars)</label><input id="unit_price" inputmode="decimal" placeholder="e.g. 400"></div>
+        <div><label for="deposit_pct">Deposit asked (%)</label><input id="deposit_pct" inputmode="numeric" placeholder="e.g. 30"></div>
       </div>
-      <div class="sub">What the listing claims</div>
-      <div class="grid">
-        <div class="full"><label for="claimed_certifications">Certifications, separated by commas</label><input id="claimed_certifications" placeholder="e.g. CE, ISO 9001, RoHS"></div>
-        <div><label for="claimed_years">Years in business</label><input id="claimed_years" inputmode="numeric" placeholder="e.g. 12"></div>
-        <div><label for="claimed_monthly_capacity">Production per month (units)</label><input id="claimed_monthly_capacity" inputmode="numeric" placeholder="e.g. 5,000"></div>
-        <div class="full"><label for="claimed_export_markets">Export markets, separated by commas</label><input id="claimed_export_markets" placeholder="e.g. Germany, Brazil, Nigeria"></div>
-        <div><label for="staff">Staff</label><input id="staff" inputmode="numeric" placeholder="e.g. 70"></div>
-        <div><label for="factory_m2">Factory size (m²)</label><input id="factory_m2" inputmode="numeric" placeholder="e.g. 2,100"></div>
-        <div class="full"><label for="business_type">Business type</label><input id="business_type" placeholder="e.g. Manufacturer, Trading Company"></div>
-      </div>
-      <div class="sub">From the invoice or proforma (optional)</div>
-      <div class="grid">
-        <div><label for="invoice_beneficiary">Account holder to pay</label><input id="invoice_beneficiary" placeholder="optional"></div>
-        <div><label for="invoice_bank_country">Bank country</label><input id="invoice_bank_country" placeholder="optional"></div>
-      </div>
-      <div class="sub" style="display:none">Passcode</div>
+      <details class="more" id="more"><summary>More details (optional)</summary><div class="more-body">
+        <div class="sub">Your order</div>
+        <div class="grid">
+          <div class="full"><label for="product">Product and specification</label><input id="product" placeholder="e.g. 7.5 kW 3-phase frequency inverter, 380 V"></div>
+          <div><label for="deadline_days">Needed within (days)</label><input id="deadline_days" inputmode="numeric" placeholder="e.g. 60"></div>
+        </div>
+        <div class="sub">From the listing</div>
+        <div class="grid">
+          <div><label for="city">City</label><input id="city" placeholder="e.g. Shenzhen"></div>
+          <div><label for="claimed_registration">Registration or licence number, if shown</label><input id="claimed_registration" placeholder="optional"></div>
+          <div class="full"><label for="website">Company website, if the listing gives one</label><input id="website" placeholder="www.example.com"></div>
+          <div class="full"><label for="listing_url">Listing link</label><input id="listing_url" placeholder="https://www.alibaba.com/product-detail/..."></div>
+        </div>
+        <div class="sub">What the listing claims</div>
+        <div class="grid">
+          <div class="full"><label for="claimed_certifications">Certifications, separated by commas</label><input id="claimed_certifications" placeholder="e.g. CE, ISO 9001, RoHS"></div>
+          <div><label for="claimed_years">Years in business</label><input id="claimed_years" inputmode="numeric" placeholder="e.g. 12"></div>
+          <div><label for="claimed_monthly_capacity">Production per month (units)</label><input id="claimed_monthly_capacity" inputmode="numeric" placeholder="e.g. 5,000"></div>
+          <div class="full"><label for="claimed_export_markets">Export markets, separated by commas</label><input id="claimed_export_markets" placeholder="e.g. Germany, Brazil, Nigeria"></div>
+          <div><label for="staff">Staff</label><input id="staff" inputmode="numeric" placeholder="e.g. 70"></div>
+          <div><label for="factory_m2">Factory size (m²)</label><input id="factory_m2" inputmode="numeric" placeholder="e.g. 2,100"></div>
+          <div class="full"><label for="business_type">Business type</label><input id="business_type" placeholder="e.g. Manufacturer, Trading Company"></div>
+        </div>
+        <div class="sub">From the invoice or proforma</div>
+        <div class="grid">
+          <div><label for="invoice_beneficiary">Account holder to pay</label><input id="invoice_beneficiary" placeholder="optional"></div>
+          <div><label for="invoice_bank_country">Bank country</label><input id="invoice_bank_country" placeholder="optional"></div>
+        </div>
+      </div></details>
+      <details class="more"><summary>Or paste the whole Alibaba page</summary><div class="more-body">
+        <label for="paste">Copy the seller's Alibaba page (Ctrl + A, Ctrl + C) and paste it here</label>
+        <textarea id="paste" rows="3" placeholder="Paste the listing or company profile text. Name, location, years, certifications, capacity and markets are filled in for you."></textarea>
+        <div class="hint" id="pastemsg"></div>
+      </div></details>
+      <details class="more"><summary>Or try an example</summary><div class="more-body">
+        <div id="examples" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div></details>
       <input id="passcode" type="password" style="display:none" placeholder="Not needed">
-      <button class="run" id="run" type="submit">Check this supplier</button>
-      <div class="hint">Open to everyone on testnet funds: 5 free checks per visitor per day. A check makes up to six paid Telegraph calls, about $0.01 each of test money. It takes up to a minute.</div>
+      <div class="actions"><button class="run" id="run" type="submit">Check this supplier</button><button class="chip" id="clearform" type="button">Clear</button></div>
+      <div class="hint">Open to everyone on testnet funds: 20 free checks per visitor per day. A check makes up to six paid Telegraph calls, about $0.01 each of test money. It takes up to a minute.</div>
     </form>
   </section>
 
@@ -311,6 +331,9 @@ $('theme').onclick = () => { root.classList.toggle('light'); try { localStorage.
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const LABEL = { ok: 'OK', stop: 'Stop', mismatch: 'Mismatch', check: 'Ask', not_found: 'Not found', unverified: 'Not checked' };
 
+const RANK = { stop: 0, mismatch: 1, check: 2, unverified: 3, not_found: 4, ok: 5 };
+const rankOf = f => (/^Sanctions/.test(f.area) && f.status !== 'stop' && f.status !== 'mismatch') ? 1.5 : (RANK[f.status] ?? 9);
+const firstSentence = t => { const x = String(t || '').replace(/\s+/g, ' ').trim(); const i = x.search(/[.!?](\s|$)/); const one = i > 0 ? x.slice(0, i + 1) : x; return one.length > 150 ? one.slice(0, 147) + '...' : one; };
 function render(r) {
   const vClass = r.verdict.startsWith('STOP') ? 'STOP' : r.verdict.startsWith('VERIFY') ? 'VERIFY' : 'PROCEED';
   let h = `<h2>Result: ${esc(r.input.supplier)}</h2><div class="card">`;
@@ -321,21 +344,29 @@ function render(r) {
       + (p.receipt ? `<div class="hint">Sandbox receipt <span class="mono">${esc(p.receipt.id)}</span>, ${esc(p.receipt.created_at)}. No money moved.</div>` : `<div class="hint">${esc(p.mode)}.</div>`)
       + (p.decision !== 'blocked' ? `<button type="button" class="chip" id="todeliv" style="margin-top:10px">Next: check the delivery</button>` : '') + `</div>`;
   }
+  const top = [...r.findings].sort((a, b) => rankOf(a) - rankOf(b)).slice(0, 4);
+  if (top.length) h += `<div class="sub">Main points</div><ul class="why">` + top.map(f => `<li><span class="pill s-${f.status}">${LABEL[f.status] || f.status}</span><div><b>${esc(f.area)}.</b> ${esc(firstSentence(f.text))}</div></li>`).join('') + `</ul>`;
   if (r.answer_reviews && r.answer_reviews.length) {
     const DL = { accepted: 'Accepted', rejected: 'Rejected', disputed: 'Disputed', unusable: 'No usable answer', not_checked: 'Not checkable' };
-    h += `<div class="sub">Answers the agent bought</div><table class="rv"><tr><th>Question</th><th>Miner</th><th>Result</th><th>Why</th></tr>`
-      + r.answer_reviews.map(a => `<tr><td>${esc(a.question)}</td><td class="hint">${esc(a.miner)}</td><td><span class="pill d-${esc(a.decision)}">${DL[a.decision] || esc(a.decision)}</span></td><td>${esc(a.reason)}${a.judged_against && a.judged_against !== '-' ? `<div class="hint">Checked against: ${esc(a.judged_against)}</div>` : ''}</td></tr>`).join('')
-      + `</table><div class="sub">All findings</div>`;
+    h += `<div class="sub">Answers the agent bought</div><table class="rv"><tr><th>Question</th><th>Miner</th><th>Result</th></tr>`
+      + r.answer_reviews.map(a => `<tr><td>${esc(a.question)}</td><td class="hint">${esc(a.miner)}</td><td><span class="pill d-${esc(a.decision)}">${DL[a.decision] || esc(a.decision)}</span></td></tr>`).join('') + `</table>`;
+    h += `<details class="more"><summary>Why each answer was accepted or rejected</summary><div class="more-body" style="overflow-x:auto"><table class="rv"><tr><th>Question</th><th>Result</th><th>Why</th></tr>`
+      + r.answer_reviews.map(a => `<tr><td>${esc(a.question)}</td><td><span class="pill d-${esc(a.decision)}">${DL[a.decision] || esc(a.decision)}</span></td><td>${esc(a.reason)}${a.judged_against && a.judged_against !== '-' ? `<div class="hint">Checked against: ${esc(a.judged_against)}</div>` : ''}</td></tr>`).join('')
+      + `</table></div></details>`;
   }
+  h += `<details class="more"><summary>All findings (${r.findings.length})</summary><div class="more-body">`;
   for (const f of r.findings) h += `<div class="f"><span class="pill s-${f.status}">${LABEL[f.status] || f.status}</span><div><b>${esc(f.area)}.</b> ${esc(f.text)}</div><div class="src">Source: ${esc(f.source)}</div></div>`;
-  h += `</div><h2 style="margin-top:24px">Telegraph requests and receipts</h2><div class="card" style="overflow-x:auto"><table><tr><th>Intent</th><th>Miner</th><th>Cost</th><th>Receipt / signal</th></tr>`;
+  h += `</div></details>`;
+  h += `<details class="more"><summary>Telegraph requests and receipts (${r.telegraph_calls.length})</summary><div class="more-body" style="overflow-x:auto"><table><tr><th>Intent</th><th>Miner</th><th>Cost</th><th>Receipt / signal</th></tr>`;
   for (const c of r.telegraph_calls) {
     const rec = c.payments.map(p => p.receipt_hash).filter(Boolean).join(' ');
     h += `<tr><td>${esc(c.intent)}<div class="hint">via ${esc(c.form || '-')}</div>${c.first_try_refused ? `<div class="hint">First attempt refused: ${esc(c.first_try_refused)}</div>` : ''}${c.error ? `<div class="err">${esc(c.error)}</div>` : ''}${c.raw_preview ? `<details><summary class="hint">Raw answer</summary><div class="mono">${esc(c.raw_preview)}</div></details>` : ''}</td><td>${esc(c.miner || '-')}</td><td>${c.cost_usd != null ? '$' + c.cost_usd : '-'}</td><td class="mono">${esc(rec || c.signal_hash || '-')}</td></tr>`;
   }
-  h += `</table><p class="hint">Total paid: $${r.total_cost_usd} on ${esc(r.network)}. Checked ${esc(r.checked_at)}.</p><button class="run" id="addcmp" type="button">Add to comparison</button></div>`;
+  h += `</table><p class="hint">Total paid: $${r.total_cost_usd} on ${esc(r.network)}. Checked ${esc(r.checked_at)}.</p></div></details>`;
+  h += `<div class="actions"><button class="run" id="again" type="button">Check another supplier</button><button class="chip" id="addcmp" type="button">Add to comparison</button></div></div>`;
   $('out').innerHTML = h; $('out').hidden = false; $('out').scrollIntoView({ behavior: 'smooth' });
   if ($('todeliv')) $('todeliv').onclick = () => { $('d-co').value = (r.register && (r.register.lei || r.register.legal_name)) || r.input.supplier; go('delivery'); $('d-rep').focus({ preventScroll: true }); };
+  $('again').onclick = () => { resetForm(true); $('check').scrollIntoView({ behavior: 'smooth' }); $('supplier').focus({ preventScroll: true }); };
   $('addcmp').onclick = () => { if (!compared.some(c => c.checked_at === r.checked_at)) compared.push(r); drawCmp(); $('cmp').scrollIntoView({ behavior: 'smooth' }); };
 }
 
@@ -347,11 +378,17 @@ const EXAMPLES = [
   { label: 'Sanctioned company', supplier: 'Rosoboronexport', country: 'Russia', city: 'Moscow' },
 ];
 const ORDER = ['product', 'quantity', 'deadline_days', 'unit_price', 'deposit_pct'];
-function fill(x, keepOrder) { for (const k of FIELDS) { if (keepOrder && ORDER.includes(k) && !(k in x)) continue; $(k).value = x[k] || ''; } save(); }
-function save() { try { const v = {}; for (const k of FIELDS) v[k] = $(k).value; localStorage.setItem('sbc-last', JSON.stringify(v)); if ($('passcode').value) localStorage.setItem('sbc-pass', $('passcode').value); } catch {} }
+const DEFAULT_ORDER = { quantity: '200', unit_price: '400', deposit_pct: '30' };
+const UP_FRONT = ['supplier', 'country', 'quantity', 'unit_price', 'deposit_pct'];
+function openMore() { if (FIELDS.some(k => !UP_FRONT.includes(k) && $(k).value)) $('more').open = true; }
+function fill(x, keepOrder) { for (const k of FIELDS) { if (keepOrder && ORDER.includes(k) && !(k in x)) continue; $(k).value = x[k] || ''; } save(); openMore(); }
+function save() { try { if ($('passcode').value) localStorage.setItem('sbc-pass', $('passcode').value); } catch {} }
+function resetForm(keepOrder) { for (const k of FIELDS) { if (keepOrder && ORDER.includes(k)) continue; $(k).value = DEFAULT_ORDER[k] || ''; } $('paste').value = ''; $('pastemsg').textContent = ''; $('more').open = false; }
 $('examples').innerHTML = EXAMPLES.map((x, i) => `<button type="button" class="chip" data-i="${i}">${esc(x.label)}</button>`).join('');
 $('examples').querySelectorAll('.chip').forEach(b => b.onclick = () => fill(EXAMPLES[b.dataset.i], true));
-try { const last = JSON.parse(localStorage.getItem('sbc-last') || 'null'); if (last) fill(last); const pw = localStorage.getItem('sbc-pass'); if (pw) $('passcode').value = pw; } catch {}
+try { localStorage.removeItem('sbc-last'); const pw = localStorage.getItem('sbc-pass'); if (pw) $('passcode').value = pw; } catch {}
+resetForm(false);
+$('clearform').onclick = () => resetForm(false);
 for (const k of [...FIELDS, 'passcode']) $(k).addEventListener('change', save);
 
 // ---------- Fill it in for me ----------
@@ -383,7 +420,7 @@ $('paste').addEventListener('input', () => {
   const t = $('paste').value; if (t.length < 20) { $('pastemsg').textContent = ''; return; }
   const got = parseListing(t);
   for (const [k, v] of Object.entries(got)) if (v) $(k).value = v;
-  save();
+  save(); openMore();
   const names = { supplier: 'company', country: 'country', city: 'city', claimed_years: 'years', claimed_certifications: 'certifications', claimed_monthly_capacity: 'capacity', claimed_export_markets: 'markets', website: 'website', listing_url: 'link', staff: 'staff', factory_m2: 'factory size', business_type: 'business type' };
   const filled = Object.keys(got).filter(k => got[k]).map(k => names[k]);
   $('pastemsg').textContent = filled.length ? `Filled in: ${filled.join(', ')}. Check them, then run the check.` : 'Nothing recognised. Try copying the seller\'s company profile page.';
@@ -432,7 +469,9 @@ $('form').onsubmit = async e => {
   e.preventDefault();
   const body = {};
   for (const k of [...FIELDS, 'passcode']) body[k] = $(k).value.trim();
-  $('run').disabled = true; $('run').textContent = 'Checking, up to a minute...';
+  const t0 = Date.now(); $('run').disabled = true;
+  const tick = () => { $('run').textContent = `Checking... ${Math.round((Date.now() - t0) / 1000)} s (takes up to a minute)`; }; tick();
+  const timer = setInterval(tick, 1000);
   try {
     const r = await fetch('/api/check', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const j = await r.json();
@@ -440,7 +479,7 @@ $('form').onsubmit = async e => {
     render(j);
   } catch (err) {
     $('out').innerHTML = `<div class="card err">${esc(err.message)}</div>`; $('out').hidden = false;
-  } finally { $('run').disabled = false; $('run').textContent = 'Check this supplier'; }
+  } finally { clearInterval(timer); $('run').disabled = false; $('run').textContent = 'Check this supplier'; }
 };
 
 // ---------- #12 demos ----------

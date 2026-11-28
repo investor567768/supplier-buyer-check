@@ -29,7 +29,7 @@ You paste the supplier's marketplace page and enter your order. The app buys reg
 **Demo video (2 min, on X, 27 Nov 2026):** https://x.com/kingChrys494/status/2126350196195971073  
 **Earlier video and first results (25 Nov 2026):** https://x.com/kingChrys494/status/2125641607001301415
 
-**Judges, start here.** No wallet, login or passcode. Anyone gets 5 free checks a day (150 a day across all visitors), paid from a testnet balance.
+**Judges, start here.** No wallet, login or passcode. Anyone gets 20 free checks a day (300 a day across all visitors), paid from a testnet balance.
 
 | Run it | Check it | Inspect the payment | Break it | Reproduce it |
 |---|---|---|---|---|
@@ -44,7 +44,7 @@ Wording is the organisers' (Season II rules, Sections 5 and 6, Apps & Agents). E
 | Something working | Live site: https://supplier-buyer-check.vercel.app (no wallet, login or passcode) |
 | A real Telegraph integration | Every supplier check makes up to six paid requests to `POST https://backend.telegraphprotocol.com/engine/ask`. Each result lists them under "Telegraph requests and receipts": intent, miner, cost, signal hash and the raw answer |
 | Repeatable results | "Try it in two minutes" below; new inputs and failure cases are on the site as buttons and in `npm test` |
-| Safe handling | The Telegraph key stays on the server and never reaches the browser. Spending limits: 5 checks per visitor and 150 in total per day. A missing answer is shown as "not checked", never as clean. No private data is stored beyond the saved results shown on the site |
+| Safe handling | The Telegraph key stays on the server and never reaches the browser. Spending limits: 20 checks per visitor and 300 in total per day. A missing answer is shown as "not checked", never as clean. No private data is stored beyond the saved results shown on the site |
 | Accurate claims | Network: **Telegraph testnet only**. Payments are test credit. The purchase decision's receipt (`SBX-...`) is a sandbox record: no money moves. Nothing here is production-verified, and no paying customer is claimed. See "What's real and what's illustrated" |
 | Star the bounties repo | Done from the submitting GitHub account; the username is in the submission form |
 
@@ -166,7 +166,7 @@ A registry provider once returned a record for a different company. The app comp
 
 ## Run it yourself
 1. Fork this repo and import it into Vercel (framework preset: Other).
-2. In Vercel, Settings, Environment Variables, add `TELEGRAPH_API_KEY` (create one at anjoman.ai, dashboard, API keys; fund the balance first). Spending limits: without further settings the site allows 5 checks per visitor and 150 in total per day (change with `RUNS_PER_IP_PER_DAY` and `RUNS_ALL_PER_DAY`). Optional `RUN_PASSCODE` lets you skip the limit yourself.
+2. In Vercel, Settings, Environment Variables, add `TELEGRAPH_API_KEY` (create one at anjoman.ai, dashboard, API keys; fund the balance first). Spending limits: without further settings the site allows 5 checks per visitor and 150 in total per day (change with `RUNS_PER_IP_PER_DAY` and `RUNS_ALL_PER_DAY`; the live site is set to 20 and 300). Optional `RUN_PASSCODE` lets you skip the limit yourself.
 3. Deploy, open the site, copy a supplier's Alibaba page (Ctrl+A, Ctrl+C), paste it into "Fill it in for me", enter your order and press **Check this supplier**.
 4. Tests, no network and nothing bought: `npm test` (Node 18+).
 
@@ -180,6 +180,7 @@ Each update below is public and dated, so you can check when it was posted.
 
 ## Limits
 - Praman Desk's sanctions miner is read from its public URL. It is a second opinion, not a Telegraph purchase, and its list date (`sdn_last_loaded`) is shown with the result.
+- Sanctions coverage differs by provider. The second opinion (Praman Desk) screens the US Treasury SDN list only. Other lists, such as the US non-SDN military-company list, are covered by the Telegraph provider alone. If that provider does not answer in time, the payment is held, never cleared.
 - The delivery check compares a supplier's report with the GLEIF register: legal name, LEI, registration number, jurisdiction, status and addresses. It cannot judge product quality.
 - Testnet only. Providers may not answer; the report says so and does not treat silence as clean.
 - Registry coverage for small manufacturers, especially in mainland China, is limited. A missing record means "ask for the business licence and Unified Social Credit Code", not "fraud".
