@@ -381,7 +381,7 @@ const ORDER = ['product', 'quantity', 'deadline_days', 'unit_price', 'deposit_pc
 const DEFAULT_ORDER = { quantity: '200', unit_price: '400', deposit_pct: '30' };
 const UP_FRONT = ['supplier', 'country', 'quantity', 'unit_price', 'deposit_pct'];
 function openMore() { if (FIELDS.some(k => !UP_FRONT.includes(k) && $(k).value)) $('more').open = true; }
-function fill(x, keepOrder) { for (const k of FIELDS) { if (keepOrder && ORDER.includes(k) && !(k in x)) continue; $(k).value = x[k] || ''; } save(); openMore(); }
+function fill(x, keepOrder) { for (const k of FIELDS) { if (keepOrder && ORDER.includes(k) && !(k in x)) continue; $(k).value = x[k] || ''; } save(); }
 function save() { try { if ($('passcode').value) localStorage.setItem('sbc-pass', $('passcode').value); } catch {} }
 function resetForm(keepOrder) { for (const k of FIELDS) { if (keepOrder && ORDER.includes(k)) continue; $(k).value = DEFAULT_ORDER[k] || ''; } $('paste').value = ''; $('pastemsg').textContent = ''; $('more').open = false; }
 $('examples').innerHTML = EXAMPLES.map((x, i) => `<button type="button" class="chip" data-i="${i}">${esc(x.label)}</button>`).join('');
